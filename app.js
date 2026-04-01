@@ -38,4 +38,8 @@ const AlertsModule = (() => {
   }
 
   return { render };
-})();
+})();window.onload = function () {
+  if (typeof ChartsModule !== "undefined") {
+    ChartsModule.buildBeforeAfter();
+  }
+};
