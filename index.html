@@ -5,9 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>BoviWatch — Digital Twin · Bem-Estar Animal</title>
 
-  <!-- ✅ CORRIGIDO -->
+  <!-- ✅ CSS CORRIGIDO -->
   <link rel="stylesheet" href="style.css">
 
+  <!-- LIBS -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
@@ -28,7 +29,7 @@
     </div>
   </div>
 
-  <!-- MAIN NAV -->
+  <!-- NAV -->
   <div class="main-nav">
     <button class="nav-btn active" onclick="showSection('mapa',this)">🗺 Mapa Global</button>
     <button class="nav-btn" onclick="showSection('rebanho',this)">🐄 Rebanho</button>
@@ -40,16 +41,69 @@
 
   <!-- SECTIONS -->
   <div class="sections">
+
+    <!-- MAPA -->
     <div id="section-mapa" class="section active">
       <div class="map-layout">
         <div class="map-container">
+
           <svg id="worldMap" width="100%" height="100%" viewBox="0 0 900 500"></svg>
+
           <div class="map-overlay-title">BoviWatch · Rede de Fazendas Monitoradas</div>
+
+          <!-- ✅ ESSENCIAIS PRO JS -->
+          <div id="mapTooltip"></div>
+          <div id="farmList"></div>
+          <div id="mapAnimalList"></div>
+
         </div>
       </div>
     </div>
-  </div>
 
+    <!-- REBANHO -->
+    <div id="section-rebanho" class="section">
+      <div class="section-header">
+        <h2>Rebanho Monitorado</h2>
+        <button class="btn-primary" onclick="openAddModal()">+ Cadastrar Animal</button>
+      </div>
+      <div class="animal-grid" id="animalGrid"></div>
+      <div class="animal-detail" id="animalDetail" style="display:none;"></div>
+    </div>
+
+    <!-- GRÁFICOS -->
+    <div id="section-graficos" class="section">
+      <div class="chart-tabs">
+        <button class="chart-tab active" onclick="switchChartTab('antes-depois',this)">Antes / Depois</button>
+        <button class="chart-tab" onclick="switchChartTab('tempo-real',this)">Tempo Real</button>
+        <button class="chart-tab" onclick="switchChartTab('evolucao',this)">Evolução</button>
+      </div>
+
+      <canvas id="chartBeforeAfter"></canvas>
+      <canvas id="chartRealtime"></canvas>
+      <canvas id="chartEvolution"></canvas>
+    </div>
+
+    <!-- ALERTAS -->
+    <div id="section-alertas" class="section">
+      <div class="section-header"><h2>Alertas</h2></div>
+      <div id="alertsFeed"></div>
+      <div id="alertsSummary"></div>
+    </div>
+
+    <!-- MÓDULOS -->
+    <div id="section-modulos" class="section">
+      <div class="section-header"><h2>Módulos</h2></div>
+      <canvas id="chartRadar"></canvas>
+      <div id="modulesList"></div>
+    </div>
+
+    <!-- MOTOR -->
+    <div id="section-motor" class="section">
+      <div class="section-header"><h2>Motor Preditivo</h2></div>
+      <div id="motorGrid"></div>
+    </div>
+
+  </div>
 </div>
 
 <!-- MODAL -->
@@ -62,7 +116,7 @@
   </div>
 </div>
 
-<!-- ✅ TODOS OS SCRIPTS CORRIGIDOS -->
+<!-- ✅ SCRIPTS CORRIGIDOS -->
 <script src="animals.js"></script>
 <script src="farms.js"></script>
 <script src="modules.js"></script>
