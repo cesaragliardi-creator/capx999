@@ -4,7 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>BoviWatch — Digital Twin · Bem-Estar Animal</title>
-  <link rel="stylesheet" href="css/style.css">
+
+  <!-- ✅ CORRIGIDO -->
+  <link rel="stylesheet" href="style.css">
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
@@ -37,228 +40,38 @@
 
   <!-- SECTIONS -->
   <div class="sections">
-
-    <!-- MAPA -->
     <div id="section-mapa" class="section active">
       <div class="map-layout">
         <div class="map-container">
-          <svg id="worldMap" width="100%" height="100%" viewBox="0 0 900 500" preserveAspectRatio="xMidYMid meet"></svg>
+          <svg id="worldMap" width="100%" height="100%" viewBox="0 0 900 500"></svg>
           <div class="map-overlay-title">BoviWatch · Rede de Fazendas Monitoradas</div>
-          <div class="map-controls">
-            <button class="map-btn" onclick="setMapView('world')">🌍 Mundo</button>
-            <button class="map-btn" onclick="setMapView('europe')">🇪🇺 Europa</button>
-            <button class="map-btn" onclick="setMapView('farm')">🏡 Fazenda</button>
-          </div>
-          <div class="map-legend">
-            <div class="legend-item"><div class="legend-dot green"></div>Saudável</div>
-            <div class="legend-item"><div class="legend-dot amber"></div>Atenção</div>
-            <div class="legend-item"><div class="legend-dot red"></div>Crítico</div>
-            <div class="legend-item"><div class="legend-dot blue"></div>Fazenda piloto</div>
-          </div>
-          <div class="map-tooltip" id="mapTooltip"></div>
-        </div>
-        <div class="map-sidebar">
-          <div class="sidebar-title">Fazendas activas</div>
-          <div id="farmList"></div>
-          <div class="sidebar-title" style="margin-top:16px;">Animais no mapa</div>
-          <div id="mapAnimalList"></div>
         </div>
       </div>
     </div>
-
-    <!-- REBANHO -->
-    <div id="section-rebanho" class="section">
-      <div class="section-header">
-        <h2>Rebanho Monitorado</h2>
-        <button class="btn-primary" onclick="openAddModal()">+ Cadastrar Animal</button>
-      </div>
-      <div class="animal-grid" id="animalGrid"></div>
-      <div class="animal-detail" id="animalDetail" style="display:none;"></div>
-    </div>
-
-    <!-- GRÁFICOS -->
-    <div id="section-graficos" class="section">
-      <div class="chart-tabs">
-        <button class="chart-tab active" onclick="switchChartTab('antes-depois',this)">Antes / Depois</button>
-        <button class="chart-tab" onclick="switchChartTab('tempo-real',this)">Tempo Real</button>
-        <button class="chart-tab" onclick="switchChartTab('evolucao',this)">Evolução Mensal</button>
-      </div>
-
-      <div id="ctab-antes-depois" class="chart-tab-content active">
-        <div class="charts-grid-2">
-          <div class="chart-card">
-            <div class="chart-card-header">
-              <div class="chart-card-title">Score de Bem-Estar — Antes vs Depois</div>
-              <span class="badge green">↑ Melhora</span>
-            </div>
-            <div class="before-after-boxes">
-              <div class="ba-box before"><div class="ba-label">ANTES</div><div class="ba-value" id="baScoreBefore">0.74</div><div class="ba-sub">zona de risco</div></div>
-              <div class="ba-arrow">→</div>
-              <div class="ba-box after"><div class="ba-label">DEPOIS</div><div class="ba-value" id="baScoreAfter">0.42</div><div class="ba-sub">zona segura</div></div>
-            </div>
-            <canvas id="chartBeforeAfter"></canvas>
-          </div>
-          <div class="chart-card">
-            <div class="chart-card-header">
-              <div class="chart-card-title">Produção de Leite (L/dia)</div>
-              <span class="badge green">↑ +12%</span>
-            </div>
-            <canvas id="chartMilk"></canvas>
-          </div>
-          <div class="chart-card">
-            <div class="chart-card-header">
-              <div class="chart-card-title">Incidência de Doenças / mês</div>
-              <span class="badge green">↓ -63%</span>
-            </div>
-            <canvas id="chartDisease"></canvas>
-          </div>
-          <div class="chart-card">
-            <div class="chart-card-header">
-              <div class="chart-card-title">Custo Operacional (€/animal/mês)</div>
-              <span class="badge green">↓ -28%</span>
-            </div>
-            <canvas id="chartCost"></canvas>
-          </div>
-        </div>
-      </div>
-
-      <div id="ctab-tempo-real" class="chart-tab-content">
-        <div class="realtime-header">
-          <div class="live-indicator big"><div class="live-dot"></div>Sensores ao vivo · atualiza a cada 3s</div>
-          <div id="rtClock" class="rt-clock">--:--:--</div>
-        </div>
-        <div class="charts-grid-2">
-          <div class="chart-card span2">
-            <div class="chart-card-header">
-              <div class="chart-card-title">Score D/M* em tempo real — todos os animais</div>
-            </div>
-            <canvas id="chartRealtime"></canvas>
-          </div>
-          <div class="chart-card">
-            <div class="chart-card-header">
-              <div class="chart-card-title">Temperatura corporal 24h</div>
-            </div>
-            <canvas id="chartTemp"></canvas>
-          </div>
-          <div class="chart-card">
-            <div class="chart-card-header">
-              <div class="chart-card-title">Sensores ao vivo</div>
-            </div>
-            <div id="sensorBars"></div>
-          </div>
-        </div>
-      </div>
-
-      <div id="ctab-evolucao" class="chart-tab-content">
-        <div class="charts-grid-2">
-          <div class="chart-card span2">
-            <div class="chart-card-header">
-              <div class="chart-card-title">Evolução do Score D/M* — 12 meses</div>
-              <div class="time-btns">
-                <button class="time-btn active" onclick="setTimeRange('6m',this)">6m</button>
-                <button class="time-btn" onclick="setTimeRange('12m',this)">12m</button>
-              </div>
-            </div>
-            <canvas id="chartEvolution"></canvas>
-          </div>
-          <div class="chart-card">
-            <div class="chart-card-header">
-              <div class="chart-card-title">Campos de Memória σ e φ</div>
-            </div>
-            <canvas id="chartMemory"></canvas>
-          </div>
-          <div class="chart-card">
-            <div class="chart-card-header">
-              <div class="chart-card-title">Ruminação por animal (min/h)</div>
-            </div>
-            <canvas id="chartRumination"></canvas>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ALERTAS -->
-    <div id="section-alertas" class="section">
-      <div class="section-header"><h2>Alertas Preditivos</h2></div>
-      <div class="alerts-layout">
-        <div id="alertsFeed"></div>
-        <div class="alerts-summary" id="alertsSummary"></div>
-      </div>
-    </div>
-
-    <!-- MÓDULOS -->
-    <div id="section-modulos" class="section">
-      <div class="section-header"><h2>7 Módulos do Desafio InoCrowd</h2></div>
-      <div class="modules-layout">
-        <div class="chart-card" style="flex:1;">
-          <div class="chart-card-title" style="margin-bottom:12px;">Cobertura BoviWatch vs Requisitos</div>
-          <canvas id="chartRadar" style="max-height:320px;"></canvas>
-        </div>
-        <div class="modules-list" id="modulesList"></div>
-      </div>
-    </div>
-
-    <!-- MOTOR PREDITIVO -->
-    <div id="section-motor" class="section">
-      <div class="section-header"><h2>Motor Preditivo</h2></div>
-      <div class="motor-grid" id="motorGrid"></div>
-    </div>
-
   </div>
+
 </div>
 
-<!-- MODAL CADASTRO -->
+<!-- MODAL -->
 <div class="modal-overlay" id="addModal" style="display:none;">
   <div class="modal">
     <div class="modal-header">
       <div class="modal-title">Cadastrar Novo Animal</div>
-      <button class="modal-close" onclick="closeAddModal()">✕</button>
-    </div>
-    <div class="upload-area" id="uploadArea" onclick="document.getElementById('photoInput').click()">
-      <div id="uploadText">📷 Clique para carregar foto do animal</div>
-      <input type="file" id="photoInput" accept="image/*" style="display:none" onchange="handlePhoto(event)">
-    </div>
-    <div class="form-grid">
-      <div class="form-group">
-        <label>Nome / Identificação</label>
-        <input type="text" id="fName" placeholder="ex: Mimosa #47">
-      </div>
-      <div class="form-group">
-        <label>Idade (anos)</label>
-        <input type="number" id="fAge" placeholder="ex: 4">
-      </div>
-      <div class="form-group">
-        <label>Localização</label>
-        <input type="text" id="fLocal" placeholder="ex: Pasto A, Sector 2">
-      </div>
-      <div class="form-group">
-        <label>Score D/M* inicial (0.0–1.5)</label>
-        <input type="number" step="0.01" min="0" max="1.5" id="fScore" placeholder="ex: 0.35">
-      </div>
-      <div class="form-group">
-        <label>Peso (kg)</label>
-        <input type="number" id="fWeight" placeholder="ex: 550">
-      </div>
-      <div class="form-group">
-        <label>Nº de Lactação</label>
-        <input type="text" id="fLact" placeholder="ex: 2ª">
-      </div>
-    </div>
-    <div class="modal-actions">
-      <button class="btn-cancel" onclick="closeAddModal()">Cancelar</button>
-      <button class="btn-primary" onclick="saveAnimal()">Cadastrar Animal</button>
+      <button onclick="closeAddModal()">✕</button>
     </div>
   </div>
 </div>
 
-<script src="data/animals.js"></script>
-<script src="data/farms.js"></script>
-<script src="data/modules.js"></script>
-<script src="js/predictor.js"></script>
-<script src="js/map.js"></script>
-<script src="js/charts.js"></script>
-<script src="js/alerts.js"></script>
-<script src="js/app.js"></script>
+<!-- ✅ TODOS OS SCRIPTS CORRIGIDOS -->
+<script src="animals.js"></script>
+<script src="farms.js"></script>
+<script src="modules.js"></script>
+
+<script src="predictor.js"></script>
+<script src="map.js"></script>
+<script src="charts.js"></script>
+<script src="alerts.js"></script>
+<script src="app.js"></script>
 
 </body>
 </html>
