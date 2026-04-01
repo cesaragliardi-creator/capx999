@@ -1,51 +1,154 @@
-// data/animals.js — Dados dos animais monitorados
-const ANIMALS = [
-  {
-    id: 1, name: "Mimosa #12", emoji: "🐄", age: 5, local: "Pasto A",
-    score: 0.22, scoreBefore: 0.68, status: "ok",
-    lat: 40.4, lon: -8.2, country: "Portugal",
-    lactation: "3ª", weight: "580kg", temp: "38.4°C", rumination: "Normal",
-    sigma: 0.31, phi: 0.18, photo: null,
-    tempHistory: [38.2,38.3,38.4,38.3,38.4,38.5,38.3,38.4,38.2,38.3,38.4,38.3,38.2,38.4,38.3,38.5,38.4,38.3,38.4,38.3,38.2,38.3,38.4,38.3],
-    milkHistory: [18,18.5,19,18.8,19.2,19.5,19.3,19.8,20,19.9,20.2,20.5],
-    sigmaHistory: [0.55,0.52,0.48,0.44,0.40,0.36,0.33,0.31,0.29,0.27,0.25,0.22],
-    phiHistory:   [0.38,0.33,0.28,0.25,0.22,0.20,0.19,0.18,0.17,0.17,0.18,0.18],
-    ruminHistory: [42,44,45,43,46,47,48,46,49,50,51,52]
-  },
-  {
-    id: 2, name: "Estrela #07", emoji: "🐮", age: 3, local: "Pasto B",
-    score: 0.71, scoreBefore: 0.92, status: "warn",
-    lat: 41.1, lon: -8.6, country: "Portugal",
-    lactation: "1ª", weight: "510kg", temp: "39.1°C", rumination: "Reduzida",
-    sigma: 0.62, phi: 0.44, photo: null,
-    tempHistory: [38.5,38.7,38.9,39.0,39.1,39.2,39.1,39.0,38.9,38.8,38.7,38.8,39.0,39.1,39.2,39.3,39.1,38.9,38.8,38.7,38.8,39.0,39.1,39.1],
-    milkHistory: [14,13.5,13,13.2,13.5,14,14.2,14.5,14.8,15,15.3,15.5],
-    sigmaHistory: [0.80,0.78,0.76,0.74,0.72,0.70,0.69,0.68,0.67,0.67,0.68,0.71],
-    phiHistory:   [0.58,0.54,0.50,0.47,0.45,0.44,0.44,0.44,0.43,0.43,0.44,0.44],
-    ruminHistory: [28,26,25,27,26,28,29,30,31,32,31,30]
-  },
-  {
-    id: 3, name: "Boneca #23", emoji: "🐄", age: 7, local: "Pasto A",
-    score: 0.18, scoreBefore: 0.55, status: "ok",
-    lat: 39.7, lon: -8.0, country: "Portugal",
-    lactation: "5ª", weight: "620kg", temp: "38.2°C", rumination: "Normal",
-    sigma: 0.28, phi: 0.12, photo: null,
-    tempHistory: [38.1,38.2,38.1,38.2,38.3,38.2,38.1,38.2,38.1,38.2,38.1,38.2,38.1,38.2,38.3,38.2,38.1,38.2,38.1,38.2,38.1,38.2,38.1,38.2],
-    milkHistory: [22,22.3,22.8,23,23.2,23.5,23.8,24,24.2,24.5,24.8,25],
-    sigmaHistory: [0.42,0.38,0.35,0.32,0.30,0.28,0.27,0.26,0.24,0.23,0.21,0.18],
-    phiHistory:   [0.28,0.24,0.21,0.18,0.16,0.14,0.13,0.13,0.12,0.12,0.12,0.12],
-    ruminHistory: [52,53,54,55,54,56,57,58,57,59,60,61]
-  },
-  {
-    id: 4, name: "Pipa #31", emoji: "🐮", age: 4, local: "Pasto C",
-    score: 0.55, scoreBefore: 0.78, status: "ok",
-    lat: 40.8, lon: -8.4, country: "Portugal",
-    lactation: "2ª", weight: "545kg", temp: "38.7°C", rumination: "Normal",
-    sigma: 0.44, phi: 0.29, photo: null,
-    tempHistory: [38.3,38.4,38.5,38.6,38.7,38.7,38.6,38.5,38.4,38.5,38.6,38.7,38.6,38.5,38.4,38.5,38.6,38.7,38.6,38.5,38.4,38.5,38.6,38.7],
-    milkHistory: [16,16.2,16.5,16.8,17,17.3,17.5,17.8,18,18.2,18.5,18.8],
-    sigmaHistory: [0.68,0.65,0.62,0.60,0.58,0.56,0.55,0.54,0.53,0.53,0.54,0.55],
-    phiHistory:   [0.42,0.38,0.35,0.33,0.31,0.30,0.29,0.29,0.29,0.29,0.29,0.29],
-    ruminHistory: [38,39,40,41,40,42,43,44,43,45,44,45]
+// js/map.js — Mapa interativo com Leaflet (zoom, pan, clique)
+
+const MapModule = (() => {
+  let map = null;
+  let farmMarkers = [];
+  let animalMarkers = [];
+  let animalLayers = {};
+
+  const TILE_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+  const TILE_ATTR = '&copy; <a href="https://openstreetmap.org">OpenStreetMap</a>';
+
+  const VIEWS = {
+    world:  { center: [42.0, -5.0], zoom: 5 },
+    europe: { center: [46.0,  8.0], zoom: 4 },
+    farm:   { center: [39.7, -8.2], zoom: 10 }
+  };
+
+  function scoreColor(s) {
+    if (s < 0.3)  return '#1D9E75';
+    if (s < 0.8)  return '#EF9F27';
+    if (s < 1.2)  return '#D85A30';
+    return '#E24B4A';
   }
-];
+
+  function scoreZone(s) {
+    if (s < 0.3)  return 'Saudável';
+    if (s < 0.8)  return 'Atenção';
+    if (s < 1.2)  return 'Agir';
+    return 'Crítico';
+  }
+
+  function makeFarmIcon(active) {
+    const color = active ? '#378ADD' : '#B5D4F4';
+    const pulse = active ? `<circle cx="14" cy="14" r="13" fill="${color}" opacity="0.18"/>` : '';
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28">
+      ${pulse}
+      <circle cx="14" cy="14" r="8" fill="${color}" opacity="0.35"/>
+      <circle cx="14" cy="14" r="5" fill="${color}" stroke="white" stroke-width="2"/>
+    </svg>`;
+    return L.divIcon({ html: svg, className: '', iconSize: [28,28], iconAnchor: [14,14], popupAnchor: [0,-14] });
+  }
+
+  function makeAnimalIcon(score, status) {
+    const color = scoreColor(score);
+    const pulse = status === 'warn'
+      ? `<circle cx="14" cy="14" r="13" fill="none" stroke="${color}" stroke-width="1.5" opacity="0.5"/>` : '';
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28">
+      ${pulse}
+      <circle cx="14" cy="14" r="9" fill="${color}" stroke="white" stroke-width="2"/>
+      <text x="14" y="18" text-anchor="middle" font-size="8" font-weight="700" fill="white" font-family="sans-serif">${score.toFixed(1)}</text>
+    </svg>`;
+    return L.divIcon({ html: svg, className: '', iconSize: [28,28], iconAnchor: [14,14], popupAnchor: [0,-14] });
+  }
+
+  function init() {
+    const container = document.getElementById('leafletMap');
+    if (!container || map) return;
+
+    map = L.map('leafletMap', {
+      center: VIEWS.world.center,
+      zoom: VIEWS.world.zoom,
+      zoomControl: true,
+      scrollWheelZoom: true,
+      doubleClickZoom: true,
+      dragging: true,
+      touchZoom: true
+    });
+
+    L.tileLayer(TILE_URL, { attribution: TILE_ATTR, maxZoom: 18 }).addTo(map);
+
+    drawFarms();
+    drawAnimals();
+    renderFarmList();
+    renderMapAnimalList();
+  }
+
+  function drawFarms() {
+    farmMarkers.forEach(m => map && map.removeLayer(m));
+    farmMarkers = [];
+    FARMS.forEach(f => {
+      const marker = L.marker([f.lat, f.lon], { icon: makeFarmIcon(f.active) });
+      marker.bindPopup(`
+        <div style="font-family:sans-serif;font-size:13px;min-width:160px;">
+          <div style="font-weight:600;margin-bottom:4px;">${f.name}</div>
+          <div style="color:#555;">${f.active ? f.units+' unidades activas' : 'Expansão prevista 2027'}</div>
+          <div style="color:#888;font-size:11px;margin-top:2px;">${f.country}</div>
+        </div>`, { maxWidth: 220 });
+      marker.addTo(map);
+      farmMarkers.push(marker);
+    });
+  }
+
+  function drawAnimals() {
+    animalMarkers.forEach(m => map && map.removeLayer(m));
+    animalMarkers = [];
+    animalLayers = {};
+    ANIMALS.forEach(a => {
+      const marker = L.marker([a.lat, a.lon], { icon: makeAnimalIcon(a.score, a.status) });
+      const zone = scoreZone(a.score);
+      const color = scoreColor(a.score);
+      marker.bindPopup(`
+        <div style="font-family:sans-serif;font-size:13px;min-width:180px;">
+          <div style="font-weight:600;margin-bottom:4px;">${a.emoji} ${a.name}</div>
+          <div style="color:${color};font-weight:600;">D/M* = ${a.score.toFixed(2)} · ${zone}</div>
+          <div style="color:#555;margin-top:4px;">${a.local} · ${a.country}</div>
+          <div style="color:#888;font-size:11px;margin-top:2px;">Temp: ${a.temp} · ${a.lactation} lactação</div>
+          <div style="margin-top:8px;">
+            <button onclick="AppState.selectAnimal(${a.id})" style="background:${color};color:white;border:none;border-radius:5px;padding:5px 10px;font-size:11px;cursor:pointer;width:100%;">Ver ficha completa</button>
+          </div>
+        </div>`, { maxWidth: 220 });
+      marker.on('click', () => map.setView([a.lat, a.lon], Math.max(map.getZoom(), 10)));
+      marker.addTo(map);
+      animalMarkers.push(marker);
+      animalLayers[a.id] = marker;
+    });
+  }
+
+  function setView(v) {
+    if (!map) return;
+    const vw = VIEWS[v] || VIEWS.world;
+    map.flyTo(vw.center, vw.zoom, { duration: 1.2 });
+  }
+
+  function focusAnimal(id) {
+    const a = ANIMALS.find(x => x.id === id);
+    if (!a || !map) return;
+    map.flyTo([a.lat, a.lon], 12, { duration: 1 });
+    setTimeout(() => { if (animalLayers[id]) animalLayers[id].openPopup(); }, 1100);
+  }
+
+  function renderFarmList() {
+    const el = document.getElementById('farmList');
+    if (!el) return;
+    el.innerHTML = FARMS.map(f => `
+      <div class="farm-item" style="cursor:pointer;" onclick="MapModule.setView('farm')">
+        <div class="farm-name">${f.active ? '🟢' : '⚪'} ${f.name}</div>
+        <div class="farm-meta">${f.active ? f.units+' unidades · activa' : 'Expansão prevista'} · ${f.country}</div>
+      </div>`).join('');
+  }
+
+  function renderMapAnimalList() {
+    const el = document.getElementById('mapAnimalList');
+    if (!el) return;
+    el.innerHTML = ANIMALS.map(a => `
+      <div class="farm-item" style="cursor:pointer;" onclick="MapModule.focusAnimal(${a.id})">
+        <div class="farm-name">${a.emoji} ${a.name}</div>
+        <div class="farm-meta" style="color:${scoreColor(a.score)}">D/M* = ${a.score.toFixed(2)} · ${a.local}</div>
+      </div>`).join('');
+  }
+
+  return { init, setView, focusAnimal, drawAnimals };
+})();
+
+function setMapView(v) { MapModule.setView(v); }
