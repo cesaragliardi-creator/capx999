@@ -1,160 +1,18 @@
-// js/map.js — Módulo do mapa mundial D3
+// data/modules.js
+const MODULES = [
+  { num: 1, name: "Biomecânica e Locomoção", desc: "Análise 3D esqueletal, detecção de coxeira, ocupação de cubículos, padrão de marcha", status: "ok", field: "Câmeras + IA", coverage: 95 },
+  { num: 2, name: "Fisiologia e Condição Corporal", desc: "Stress térmico (HLI), frequência cardíaca, ruminação, detecção preditiva de mastite", status: "ok", field: "Sensores + Coleiras", coverage: 90 },
+  { num: 3, name: "Ambiente e Microclima", desc: "Qualidade do ar (NH₃), ventilação, temperatura, humidade relativa, conforto térmico", status: "warn", field: "Sensores Ambientais", coverage: 85 },
+  { num: 4, name: "Comportamento Social e Emocional", desc: "QBA automático, análise facial FACS adaptada ao bovino, vocalização, postura da cauda", status: "ok", field: "Câmeras Térmicas + IA", coverage: 88 },
+  { num: 5, name: "Manejo e Simulação de Cenários", desc: "Impacto de intervenções na produtividade, sensores na sala de ordenha, simulação Digital Twin", status: "ok", field: "Digital Twin", coverage: 92 },
+  { num: 6, name: "Módulo Específico para Bezerros", desc: "Monitoramento neonatal, diarreia, pneumonia, qualidade da cama, balanço repouso-actividade", status: "ok", field: "Câmeras + Sensores", coverage: 80 },
+  { num: 7, name: "Integração com Sistemas Existentes", desc: "Coleiras, câmeras térmicas, acelerómetros, sistemas comerciais via API interoperável", status: "warn", field: "API / Interoperabilidade", coverage: 87 }
+];
 
-const MapModule = (() => {
-  let svg, g, projection, pathGen;
-  let currentView = "world";
-
-  const views = {
-    world:  { scale: 145, translate: [450, 270] },
-    europe: { scale: 480, translate: [200, 520] },
-    farm:   { scale: 1400, translate: [-2900, 2750] }
-  };
-
-  function init() {
-    svg = d3.select("#worldMap");
-    g   = svg.append("g");
-
-    projection = d3.geoNaturalEarth1()
-      .scale(views.world.scale)
-      .translate(views.world.translate);
-
-    pathGen = d3.geoPath().projection(projection);
-
-    fetch("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json")
-      .then(r => r.json())
-      .then(world => {
-        const countries = topojson.feature(world, world.objects.countries);
-        g.selectAll(".country")
-          .data(countries.features)
-          .enter().append("path")
-          .attr("class", "country")
-          .attr("d", pathGen)
-          .attr("fill", "#C0DD97")
-          .attr("stroke", "#fff")
-          .attr("stroke-width", "0.6");
-        drawFarms();
-        drawAnimals();
-      })
-      .catch(() => {
-        // Fallback se offline
-        g.append("rect").attr("width", 900).attr("height", 500).attr("fill", "#E1F5EE");
-        g.append("text").attr("x", 450).attr("y", 240).attr("text-anchor", "middle")
-         .attr("font-size", "15").attr("fill", "#1D9E75").attr("font-weight","600")
-         .text("BoviWatch · Rede de Monitoramento");
-        g.append("text").attr("x", 450).attr("y", 265).attr("text-anchor", "middle")
-         .attr("font-size", "12").attr("fill", "#5DCAA5")
-         .text("Portugal · Espanha · França — Expansão 1.000 unidades");
-        drawFarms();
-        drawAnimals();
-      });
-
-    renderFarmList();
-    renderMapAnimalList();
-  }
-
-  function project(lon, lat) {
-    if (!projection) return [450, 250];
-    const pt = projection([lon, lat]);
-    return pt || [450, 250];
-  }
-
-  function drawFarms() {
-    g.selectAll(".farm-pin").remove();
-    const offsets = [[0,0],[15,-12],[-12,10],[10,14]];
-    FARMS.forEach((f, i) => {
-      const [x, y] = project(f.lon, f.lat);
-      const [dx, dy] = offsets[i % offsets.length];
-      const fg = g.append("g").attr("class", "farm-pin")
-        .attr("transform", `translate(${x+dx},${y+dy})`)
-        .style("cursor", "pointer");
-
-      if (f.active) {
-        fg.append("circle").attr("r", 18).attr("fill", "#378ADD").attr("opacity", 0.15).attr("class","pulse-ring");
-        fg.append("circle").attr("r", 11).attr("fill", "#378ADD").attr("opacity", 0.25);
-      }
-      fg.append("circle").attr("r", f.active ? 7 : 5)
-        .attr("fill", f.active ? "#378ADD" : "#B5D4F4")
-        .attr("stroke", "#fff").attr("stroke-width", "2");
-
-      fg.on("mouseover", (e) => showTooltip(e,
-        `<strong>${f.name}</strong><br>` +
-        `${f.active ? `${f.units} unidades activas` : "Expansão prevista 2027"}<br>` +
-        `${f.country}`
-      )).on("mouseout", hideTooltip);
-    });
-  }
-
-  function drawAnimals() {
-    g.selectAll(".animal-pin").remove();
-    const offsets = [[0,0],[18,-8],[-16,12],[12,16]];
-    ANIMALS.forEach((a, i) => {
-      const [x, y] = project(a.lon, a.lat);
-      const [dx, dy] = offsets[i % offsets.length];
-      const color = Predictor.scoreColor(a.score);
-      const ag = g.append("g").attr("class", "animal-pin")
-        .attr("transform", `translate(${x+dx},${y+dy})`)
-        .style("cursor", "pointer");
-
-      if (a.status === "warn") {
-        ag.append("circle").attr("r", 14).attr("fill","none")
-          .attr("stroke", color).attr("stroke-width","1.5")
-          .attr("opacity", 0.5).attr("class","pulse-ring");
-      }
-      ag.append("circle").attr("r", 8).attr("fill", color)
-        .attr("stroke","#fff").attr("stroke-width","2");
-      ag.append("text").attr("text-anchor","middle").attr("dy","0.35em")
-        .attr("font-size","9").attr("fill","#fff").attr("font-weight","700")
-        .text(a.score.toFixed(1));
-
-      ag.on("mouseover", (e) => showTooltip(e,
-        `<strong>${a.name}</strong><br>` +
-        `D/M* = ${a.score.toFixed(2)}<br>` +
-        `${a.local} · ${a.country}<br>` +
-        `Status: ${a.status === "ok" ? "✅ Saudável" : "⚠️ Atenção"}`
-      )).on("mouseout", hideTooltip)
-        .on("click", () => AppState.selectAnimal(a.id));
-    });
-  }
-
-  function showTooltip(e, html) {
-    const tt = document.getElementById("mapTooltip");
-    tt.innerHTML = html;
-    tt.style.display = "block";
-    const rect = document.querySelector(".map-container").getBoundingClientRect();
-    tt.style.left = (e.clientX - rect.left + 12) + "px";
-    tt.style.top  = (e.clientY - rect.top  - 10) + "px";
-  }
-  function hideTooltip() {
-    document.getElementById("mapTooltip").style.display = "none";
-  }
-
-  function setView(v) {
-    currentView = v;
-    if (!projection) return;
-    const vw = views[v] || views.world;
-    projection.scale(vw.scale).translate(vw.translate);
-    g.selectAll(".country").attr("d", pathGen);
-    drawFarms();
-    drawAnimals();
-  }
-
-  function renderFarmList() {
-    document.getElementById("farmList").innerHTML = FARMS.map(f => `
-      <div class="farm-item">
-        <div class="farm-name">${f.active ? "🟢" : "⚪"} ${f.name}</div>
-        <div class="farm-meta">${f.active ? f.units+" unidades · activa" : "Expansão prevista"} · ${f.country}</div>
-      </div>`).join("");
-  }
-
-  function renderMapAnimalList() {
-    document.getElementById("mapAnimalList").innerHTML = ANIMALS.map(a => `
-      <div class="farm-item" onclick="AppState.selectAnimal(${a.id})" style="cursor:pointer;">
-        <div class="farm-name">${a.emoji} ${a.name}</div>
-        <div class="farm-meta" style="color:${Predictor.scoreColor(a.score)}">D/M* = ${a.score.toFixed(2)} · ${a.local}</div>
-      </div>`).join("");
-  }
-
-  return { init, setView, drawAnimals };
-})();
-
-function setMapView(v) { MapModule.setView(v); }
+const ALERTS_DATA = [
+  { cow: "Estrela #07", type: "warn", title: "Score D/M* = 0.71 — Zona de atenuação", body: "Ruminação reduzida detectada pelo sensor de coleira. Campo de memória indica tendência de stress crescente. Recomenda-se monitorização veterinária nas próximas 48h.", time: "2h atrás", module: "Fisiologia" },
+  { cow: "Estrela #07", type: "warn", title: "Campo de memória curta — Eco de stress recente", body: "Possível impacto pós-parto ainda activo. Temperatura ligeiramente elevada (39.1°C). Sugere-se revisão do protocolo de manejo.", time: "6h atrás", module: "Biomecânica" },
+  { cow: "Pipa #31",    type: "ok",   title: "Score D/M* = 0.55 — Zona intermediária estável", body: "Comportamento social normal. Produção de leite em linha com histórico. Acompanhar nas próximas 72h sem intervenção.", time: "1 dia",    module: "Comportamento" },
+  { cow: "Fazenda Piloto", type: "warn", title: "Módulo Ambiente — Alerta de Microclima", body: "Temperatura interna da unidade 1.2°C acima do limiar de conforto. Activar ventilação mecânica zona norte. Risco de stress térmico em 4h.", time: "30 min",  module: "Ambiente" },
+  { cow: "Mimosa #12",  type: "ok",   title: "Score D/M* = 0.22 — Zona segura", body: "Todos os indicadores dentro dos parâmetros normais. Produção de leite em máximo histórico (20.5L/dia). Sem acção necessária.", time: "3h atrás", module: "Fisiologia" }
+];

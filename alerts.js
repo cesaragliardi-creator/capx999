@@ -1,41 +1,51 @@
-// js/alerts.js — Módulo de alertas
-
-const AlertsModule = (() => {
-  function render() {
-    const feed = document.getElementById("alertsFeed");
-    if (!feed) return;
-    feed.innerHTML = ALERTS_DATA.map(a => `
-      <div class="alert-item ${a.type}">
-        <div>
-          <div class="alert-cow">${a.cow} · <span style="font-weight:400;color:#999;">${a.time}</span></div>
-          <div class="alert-title">${a.title}</div>
-          <div class="alert-body">${a.body}</div>
-          <div class="alert-time">Módulo: ${a.module}</div>
-        </div>
-      </div>`).join("");
-
-    const summary = document.getElementById("alertsSummary");
-    if (!summary) return;
-    const counts = { warn:0, danger:0, ok:0 };
-    ALERTS_DATA.forEach(a => counts[a.type]++);
-    summary.innerHTML = `
-      <div style="font-size:13px;font-weight:600;margin-bottom:12px;">Resumo de alertas</div>
-      <div style="display:flex;flex-direction:column;gap:8px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px;background:#FAEEDA;border-radius:8px;">
-          <span style="font-size:13px;color:#854F0B;">⚠️ Atenção</span>
-          <span style="font-size:18px;font-weight:700;color:#BA7517;">${counts.warn}</span>
-        </div>
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px;background:#FCEBEB;border-radius:8px;">
-          <span style="font-size:13px;color:#A32D2D;">🔴 Crítico</span>
-          <span style="font-size:18px;font-weight:700;color:#E24B4A;">${counts.danger}</span>
-        </div>
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px;background:#E1F5EE;border-radius:8px;">
-          <span style="font-size:13px;color:#0F6E56;">✅ Normal</span>
-          <span style="font-size:18px;font-weight:700;color:#1D9E75;">${counts.ok}</span>
-        </div>
-      </div>
-      <div style="margin-top:14px;font-size:11px;color:#999;">Motor preditivo activo · atualiza a cada ciclo de sensor</div>`;
+// data/animals.js — Dados dos animais monitorados
+const ANIMALS = [
+  {
+    id: 1, name: "Mimosa #12", emoji: "🐄", age: 5, local: "Pasto A",
+    score: 0.22, scoreBefore: 0.68, status: "ok",
+    lat: 40.4, lon: -8.2, country: "Portugal",
+    lactation: "3ª", weight: "580kg", temp: "38.4°C", rumination: "Normal",
+    sigma: 0.31, phi: 0.18, photo: null,
+    tempHistory: [38.2,38.3,38.4,38.3,38.4,38.5,38.3,38.4,38.2,38.3,38.4,38.3,38.2,38.4,38.3,38.5,38.4,38.3,38.4,38.3,38.2,38.3,38.4,38.3],
+    milkHistory: [18,18.5,19,18.8,19.2,19.5,19.3,19.8,20,19.9,20.2,20.5],
+    sigmaHistory: [0.55,0.52,0.48,0.44,0.40,0.36,0.33,0.31,0.29,0.27,0.25,0.22],
+    phiHistory:   [0.38,0.33,0.28,0.25,0.22,0.20,0.19,0.18,0.17,0.17,0.18,0.18],
+    ruminHistory: [42,44,45,43,46,47,48,46,49,50,51,52]
+  },
+  {
+    id: 2, name: "Estrela #07", emoji: "🐮", age: 3, local: "Pasto B",
+    score: 0.71, scoreBefore: 0.92, status: "warn",
+    lat: 41.1, lon: -8.6, country: "Portugal",
+    lactation: "1ª", weight: "510kg", temp: "39.1°C", rumination: "Reduzida",
+    sigma: 0.62, phi: 0.44, photo: null,
+    tempHistory: [38.5,38.7,38.9,39.0,39.1,39.2,39.1,39.0,38.9,38.8,38.7,38.8,39.0,39.1,39.2,39.3,39.1,38.9,38.8,38.7,38.8,39.0,39.1,39.1],
+    milkHistory: [14,13.5,13,13.2,13.5,14,14.2,14.5,14.8,15,15.3,15.5],
+    sigmaHistory: [0.80,0.78,0.76,0.74,0.72,0.70,0.69,0.68,0.67,0.67,0.68,0.71],
+    phiHistory:   [0.58,0.54,0.50,0.47,0.45,0.44,0.44,0.44,0.43,0.43,0.44,0.44],
+    ruminHistory: [28,26,25,27,26,28,29,30,31,32,31,30]
+  },
+  {
+    id: 3, name: "Boneca #23", emoji: "🐄", age: 7, local: "Pasto A",
+    score: 0.18, scoreBefore: 0.55, status: "ok",
+    lat: 39.7, lon: -8.0, country: "Portugal",
+    lactation: "5ª", weight: "620kg", temp: "38.2°C", rumination: "Normal",
+    sigma: 0.28, phi: 0.12, photo: null,
+    tempHistory: [38.1,38.2,38.1,38.2,38.3,38.2,38.1,38.2,38.1,38.2,38.1,38.2,38.1,38.2,38.3,38.2,38.1,38.2,38.1,38.2,38.1,38.2,38.1,38.2],
+    milkHistory: [22,22.3,22.8,23,23.2,23.5,23.8,24,24.2,24.5,24.8,25],
+    sigmaHistory: [0.42,0.38,0.35,0.32,0.30,0.28,0.27,0.26,0.24,0.23,0.21,0.18],
+    phiHistory:   [0.28,0.24,0.21,0.18,0.16,0.14,0.13,0.13,0.12,0.12,0.12,0.12],
+    ruminHistory: [52,53,54,55,54,56,57,58,57,59,60,61]
+  },
+  {
+    id: 4, name: "Pipa #31", emoji: "🐮", age: 4, local: "Pasto C",
+    score: 0.55, scoreBefore: 0.78, status: "ok",
+    lat: 40.8, lon: -8.4, country: "Portugal",
+    lactation: "2ª", weight: "545kg", temp: "38.7°C", rumination: "Normal",
+    sigma: 0.44, phi: 0.29, photo: null,
+    tempHistory: [38.3,38.4,38.5,38.6,38.7,38.7,38.6,38.5,38.4,38.5,38.6,38.7,38.6,38.5,38.4,38.5,38.6,38.7,38.6,38.5,38.4,38.5,38.6,38.7],
+    milkHistory: [16,16.2,16.5,16.8,17,17.3,17.5,17.8,18,18.2,18.5,18.8],
+    sigmaHistory: [0.68,0.65,0.62,0.60,0.58,0.56,0.55,0.54,0.53,0.53,0.54,0.55],
+    phiHistory:   [0.42,0.38,0.35,0.33,0.31,0.30,0.29,0.29,0.29,0.29,0.29,0.29],
+    ruminHistory: [38,39,40,41,40,42,43,44,43,45,44,45]
   }
-
-  return { render };
-})();
+];
