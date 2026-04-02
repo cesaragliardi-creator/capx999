@@ -1,0 +1,1555 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BoviWatch — Digital Twin · Bem-Estar Animal</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+  <style>
+
+
+
+:root {
+  --green: #1D9E75; --green-light: #E1F5EE; --green-dark: #0F6E56;
+  --amber: #EF9F27; --amber-light: #FAEEDA;
+  --red: #E24B4A;   --red-light: #FCEBEB;
+  --blue: #378ADD;  --blue-light: #E6F1FB;
+  --purple: #7F77DD;
+  --bg: #F7F6F3; --surface: #FFFFFF;
+  --border: rgba(0,0,0,0.1);
+  --text: #1a1a1a; --text-muted: #666; --text-faint: #999;
+  --radius: 10px; --radius-sm: 6px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; }
+.topbar { display: flex; align-items: center; justify-content: space-between; padding: 12px 24px; background: var(--surface); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 1000; }
+.topbar-left { display: flex; align-items: center; gap: 12px; }
+.logo { font-size: 20px; font-weight: 700; color: var(--text); }
+.logo span { color: var(--green); }
+.tagline { font-size: 11px; color: var(--text-muted); }
+.topbar-right { display: flex; align-items: center; gap: 16px; }
+.topbar-metrics { display: flex; gap: 16px; }
+.topbar-metric { text-align: center; }
+.topbar-metric-val { font-size: 16px; font-weight: 700; }
+.topbar-metric-lbl { font-size: 10px; color: var(--text-muted); }
+.live-indicator { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--green); font-weight: 500; }
+.live-indicator.big { font-size: 13px; }
+.live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); animation: blink 1.2s infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+.main-nav { display: flex; gap: 4px; padding: 12px 24px; background: var(--surface); border-bottom: 1px solid var(--border); overflow-x: auto; }
+.nav-btn { padding: 8px 16px; border: 1px solid var(--border); border-radius: 99px; background: none; cursor: pointer; font-size: 13px; color: var(--text-muted); white-space: nowrap; transition: all 0.15s; }
+.nav-btn:hover { background: var(--bg); color: var(--text); }
+.nav-btn.active { background: var(--green-light); color: var(--green-dark); border-color: var(--green); font-weight: 600; }
+.sections { padding: 20px 24px; }
+.section { display: none; }
+.section.active { display: block; }
+.section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.section-header h2 { font-size: 18px; font-weight: 600; }
+
+/* MAP */
+.map-layout { display: grid; grid-template-columns: 1fr 280px; gap: 16px; height: 520px; }
+.map-container { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); position: relative; overflow: hidden; }
+#leafletMap { width: 100%; height: 100%; border-radius: var(--radius); }
+.leaflet-container { border-radius: var(--radius); }
+.map-overlay-title { position: absolute; top: 12px; left: 12px; background: rgba(255,255,255,0.95); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 6px 12px; font-size: 12px; font-weight: 600; color: var(--text); z-index: 500; pointer-events: none; }
+.map-controls { position: absolute; top: 12px; right: 12px; display: flex; flex-direction: column; gap: 4px; z-index: 500; }
+.map-btn { padding: 6px 12px; background: rgba(255,255,255,0.95); border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 12px; cursor: pointer; }
+.map-btn:hover { background: var(--green-light); color: var(--green-dark); }
+.map-legend { position: absolute; bottom: 12px; left: 12px; background: rgba(255,255,255,0.95); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 12px; z-index: 500; pointer-events: none; }
+.legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
+.legend-item:last-child { margin-bottom: 0; }
+.legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+.legend-dot.green { background: var(--green); }
+.legend-dot.amber { background: var(--amber); }
+.legend-dot.red   { background: var(--red); }
+.legend-dot.blue  { background: var(--blue); }
+.map-sidebar { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; overflow-y: auto; }
+.sidebar-title { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
+.farm-item { padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 6px; cursor: pointer; }
+.farm-item:hover { border-color: var(--green); }
+.farm-name { font-size: 12px; font-weight: 600; }
+.farm-meta { font-size: 11px; color: var(--text-muted); }
+
+/* ANIMALS */
+.animal-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px,1fr)); gap: 12px; }
+.animal-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; cursor: pointer; transition: all 0.15s; }
+.animal-card:hover { border-color: var(--green); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+.animal-card.selected { border: 2px solid var(--green); background: var(--green-light); }
+.animal-avatar { width: 64px; height: 64px; border-radius: 50%; background: var(--bg); display: flex; align-items: center; justify-content: center; font-size: 30px; margin: 0 auto 10px; overflow: hidden; }
+.animal-avatar img { width: 64px; height: 64px; object-fit: cover; border-radius: 50%; }
+.animal-name { font-size: 13px; font-weight: 600; text-align: center; }
+.animal-id { font-size: 11px; color: var(--text-muted); text-align: center; margin-bottom: 8px; }
+.animal-score { text-align: center; font-size: 22px; font-weight: 700; margin: 6px 0; }
+.score-bar { height: 5px; border-radius: 3px; background: var(--bg); overflow: hidden; margin-top: 6px; }
+.score-fill { height: 100%; border-radius: 3px; transition: width 0.4s; }
+.animal-detail { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-top: 16px; }
+.detail-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px,1fr)); gap: 10px; }
+.detail-item { background: var(--bg); border-radius: var(--radius-sm); padding: 10px; }
+.detail-label { font-size: 10px; color: var(--text-muted); margin-bottom: 4px; }
+.detail-value { font-size: 16px; font-weight: 600; }
+
+/* BADGES */
+.badge { display: inline-flex; padding: 3px 8px; border-radius: 99px; font-size: 11px; font-weight: 600; }
+.badge.green  { background: var(--green-light); color: var(--green-dark); }
+.badge.amber  { background: var(--amber-light); color: #854F0B; }
+.badge.red    { background: var(--red-light);   color: #A32D2D; }
+.badge.blue   { background: var(--blue-light);  color: #185FA5; }
+
+/* CHARTS */
+.chart-tabs { display: flex; gap: 4px; margin-bottom: 16px; }
+.chart-tab { padding: 8px 16px; border: 1px solid var(--border); border-radius: 99px; background: none; cursor: pointer; font-size: 13px; color: var(--text-muted); }
+.chart-tab.active { background: var(--green-light); color: var(--green-dark); border-color: var(--green); font-weight: 600; }
+.chart-tab-content { display: none; }
+.chart-tab-content.active { display: block; }
+.charts-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+.chart-card.span2 { grid-column: span 2; }
+.chart-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.chart-card-title { font-size: 13px; font-weight: 600; color: var(--text); }
+.before-after-boxes { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+.ba-box { flex: 1; padding: 12px; border-radius: var(--radius-sm); text-align: center; }
+.ba-box.before { background: var(--red-light); }
+.ba-box.after  { background: var(--green-light); }
+.ba-label { font-size: 10px; font-weight: 700; margin-bottom: 4px; color: var(--text-muted); }
+.ba-value { font-size: 26px; font-weight: 700; }
+.ba-box.before .ba-value { color: var(--red); }
+.ba-box.after  .ba-value { color: var(--green); }
+.ba-sub { font-size: 10px; margin-top: 2px; color: var(--text-muted); }
+.ba-arrow { font-size: 20px; color: var(--text-muted); }
+.realtime-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.rt-clock { font-size: 14px; font-weight: 600; color: var(--text-muted); font-family: monospace; }
+.sensor-row { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--border); }
+.sensor-row:last-child { border-bottom: none; }
+.sensor-label { font-size: 12px; color: var(--text-muted); width: 110px; flex-shrink: 0; }
+.sensor-bar { flex: 1; height: 5px; border-radius: 3px; background: var(--bg); overflow: hidden; }
+.sensor-fill { height: 100%; border-radius: 3px; transition: width 0.5s; }
+.sensor-val { font-size: 12px; font-weight: 600; width: 60px; text-align: right; }
+.time-btns { display: flex; gap: 4px; }
+.time-btn { padding: 4px 10px; border: 1px solid var(--border); border-radius: 99px; background: none; font-size: 11px; cursor: pointer; color: var(--text-muted); }
+.time-btn.active { background: var(--green-light); color: var(--green-dark); border-color: var(--green); }
+
+/* ALERTS */
+.alerts-layout { display: grid; grid-template-columns: 1fr 260px; gap: 16px; }
+.alert-item { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border-radius: var(--radius); margin-bottom: 8px; border-left: 4px solid; }
+.alert-item.warn   { background: var(--amber-light); border-color: var(--amber); }
+.alert-item.danger { background: var(--red-light);   border-color: var(--red); }
+.alert-item.ok     { background: var(--green-light); border-color: var(--green); }
+.alert-cow   { font-size: 12px; font-weight: 700; color: var(--text); }
+.alert-title { font-size: 13px; font-weight: 600; margin: 2px 0; }
+.alert-body  { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+.alert-time  { font-size: 10px; color: var(--text-faint); margin-top: 4px; }
+.alerts-summary { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+
+/* MODULES */
+.modules-layout { display: flex; gap: 16px; align-items: flex-start; }
+.modules-list { flex: 1; }
+.module-item { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 8px; display: flex; gap: 12px; align-items: flex-start; }
+.module-num { width: 32px; height: 32px; border-radius: 50%; background: var(--green-light); color: var(--green-dark); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; }
+.module-name { font-size: 13px; font-weight: 600; margin-bottom: 3px; }
+.module-desc { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+
+/* MOTOR */
+.motor-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px,1fr)); gap: 14px; }
+.motor-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+.motor-card-title { font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
+.motor-threshold { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 8px; }
+.threshold-item { padding: 8px; border-radius: var(--radius-sm); text-align: center; }
+.threshold-val   { font-size: 11px; color: var(--text-muted); }
+.threshold-label { font-size: 12px; font-weight: 700; margin-top: 2px; }
+
+/* MODAL */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 2000; display: flex; align-items: center; justify-content: center; }
+.modal { background: var(--surface); border-radius: var(--radius); padding: 24px; width: 480px; max-height: 90vh; overflow-y: auto; }
+.modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.modal-title { font-size: 16px; font-weight: 700; }
+.modal-close { background: none; border: none; font-size: 18px; cursor: pointer; color: var(--text-muted); }
+.upload-area { border: 2px dashed var(--border); border-radius: var(--radius); padding: 24px; text-align: center; cursor: pointer; color: var(--text-muted); font-size: 13px; margin-bottom: 16px; }
+.upload-area:hover { border-color: var(--green); color: var(--green); }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.form-group { display: flex; flex-direction: column; gap: 4px; }
+.form-group label { font-size: 11px; font-weight: 600; color: var(--text-muted); }
+.form-group input { padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 13px; }
+.form-group input:focus { outline: none; border-color: var(--green); }
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+.btn-primary { padding: 9px 18px; background: var(--green); color: white; border: none; border-radius: var(--radius-sm); font-size: 13px; font-weight: 600; cursor: pointer; }
+.btn-primary:hover { background: var(--green-dark); }
+.btn-cancel { padding: 9px 18px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: none; font-size: 13px; cursor: pointer; color: var(--text-muted); }
+
+@media (max-width: 768px) {
+  .map-layout { grid-template-columns: 1fr; }
+  .charts-grid-2 { grid-template-columns: 1fr; }
+  .chart-card.span2 { grid-column: span 1; }
+  .modules-layout { flex-direction: column; }
+  .alerts-layout { grid-template-columns: 1fr; }
+  .topbar-metrics { display: none; }
+}
+@keyframes pulse-ring { 0%,100%{opacity:0.6;transform:scale(1)} 50%{opacity:0.2;transform:scale(1.4)} }
+.pulse-ring { animation: pulse-ring 2s infinite; transform-origin: center; }
+
+  
+
+/* LANG SELECTOR */
+.lang-selector { display:flex; gap:3px; }
+.lang-btn { padding:4px 8px; border:1px solid var(--border); border-radius:6px; background:none; cursor:pointer; font-size:11px; font-weight:600; color:var(--text-muted); transition:all 0.15s; }
+.lang-btn:hover { background:var(--bg); }
+.lang-btn.active { background:var(--green-light); color:var(--green-dark); border-color:var(--green); }
+/* GPS BUTTON */
+.gps-btn { padding:8px 14px; background:var(--blue-light); color:var(--blue); border:1px solid var(--blue); border-radius:var(--radius-sm); font-size:12px; font-weight:600; cursor:pointer; margin-bottom:10px; width:100%; }
+.gps-btn:hover { background:var(--blue); color:white; }
+.gps-status { font-size:11px; color:var(--text-muted); margin-top:4px; text-align:center; }
+/* GPS PULSE on map marker */
+@keyframes gps-pulse { 0%{opacity:1;transform:scale(1)} 70%{opacity:0;transform:scale(2.5)} 100%{opacity:0;transform:scale(2.5)} }
+.gps-pulse-ring { animation: gps-pulse 1.5s infinite; transform-origin:14px 14px; }
+
+  
+
+/* ── NOTIFICAÇÕES PUSH ── */
+.notif-container{position:fixed;top:70px;right:16px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none;}
+.notif{background:#fff;border:1px solid rgba(0,0,0,0.12);border-radius:10px;padding:12px 14px;min-width:280px;max-width:340px;box-shadow:0 4px 20px rgba(0,0,0,0.15);pointer-events:all;display:flex;align-items:flex-start;gap:10px;animation:notif-in 0.35s ease;}
+@keyframes notif-in{from{opacity:0;transform:translateX(60px);}to{opacity:1;transform:translateX(0);}}
+@keyframes notif-out{from{opacity:1;transform:translateX(0);}to{opacity:0;transform:translateX(60px);}}
+.notif.removing{animation:notif-out 0.3s ease forwards;}
+.notif-icon{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;}
+.notif-icon.warn{background:#FAEEDA;}
+.notif-icon.danger{background:#FCEBEB;}
+.notif-icon.ok{background:#E1F5EE;}
+.notif-body{flex:1;}
+.notif-title{font-size:12px;font-weight:700;color:#1a1a1a;margin-bottom:2px;}
+.notif-msg{font-size:11px;color:#666;line-height:1.4;}
+.notif-time{font-size:10px;color:#999;margin-top:3px;}
+.notif-close{background:none;border:none;font-size:14px;cursor:pointer;color:#999;padding:0;flex-shrink:0;}
+.notif-bell{cursor:pointer;position:relative;font-size:18px;}
+.notif-badge{position:absolute;top:-4px;right:-4px;background:#E24B4A;color:white;border-radius:50%;width:16px;height:16px;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;}
+
+/* ── GPS TRAIL ── */
+.gps-trail-legend{display:flex;gap:12px;margin-top:8px;flex-wrap:wrap;}
+.trail-item{display:flex;align-items:center;gap:5px;font-size:11px;color:#666;}
+.trail-dot{width:8px;height:8px;border-radius:50%;}
+
+/* ── DASHBOARD FAZENDAS ── */
+.farm-dashboard{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;}
+.farm-card{background:#fff;border:1px solid rgba(0,0,0,0.1);border-radius:10px;padding:16px;cursor:pointer;transition:all 0.15s;}
+.farm-card:hover{border-color:#1D9E75;box-shadow:0 4px 12px rgba(0,0,0,0.08);}
+.farm-card.active{border:2px solid #1D9E75;background:#E1F5EE;}
+.farm-card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.farm-card-name{font-size:14px;font-weight:700;}
+.farm-status{display:flex;gap:8px;margin-bottom:10px;}
+.farm-stat{flex:1;background:#F7F6F3;border-radius:6px;padding:8px;text-align:center;}
+.farm-stat-val{font-size:18px;font-weight:700;}
+.farm-stat-lbl{font-size:9px;color:#999;text-transform:uppercase;}
+.farm-animals-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin-top:12px;}
+.farm-detail{background:#fff;border:1px solid rgba(0,0,0,0.1);border-radius:10px;padding:16px;margin-top:14px;}
+.farm-detail-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+
+/* ── PDF EXPORT ── */
+.pdf-btn{padding:8px 16px;background:#378ADD;color:white;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;}
+.pdf-btn:hover{background:#185FA5;}
+.pdf-preview{background:#fff;border:1px solid rgba(0,0,0,0.1);border-radius:8px;padding:24px;margin-top:16px;font-family:serif;}
+.pdf-header{border-bottom:2px solid #1D9E75;padding-bottom:12px;margin-bottom:16px;}
+.pdf-title{font-size:20px;font-weight:700;color:#1a1a1a;}
+.pdf-subtitle{font-size:12px;color:#666;margin-top:4px;}
+.pdf-section{margin-bottom:16px;}
+.pdf-section-title{font-size:13px;font-weight:700;color:#0F6E56;border-bottom:1px solid #E1F5EE;padding-bottom:4px;margin-bottom:8px;}
+.pdf-table{width:100%;border-collapse:collapse;font-size:12px;}
+.pdf-table th{background:#E1F5EE;color:#0F6E56;padding:6px 10px;text-align:left;font-size:11px;}
+.pdf-table td{padding:6px 10px;border-bottom:1px solid #f0f0f0;}
+.pdf-table tr:last-child td{border-bottom:none;}
+
+/* ── BEZERROS ── */
+.calves-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;}
+.calf-card{background:#fff;border:1px solid rgba(0,0,0,0.1);border-radius:10px;padding:14px;}
+.calf-avatar{font-size:36px;text-align:center;margin-bottom:8px;}
+.calf-name{font-size:13px;font-weight:700;text-align:center;}
+.calf-age{font-size:11px;color:#999;text-align:center;margin-bottom:8px;}
+.calf-vitals{display:flex;flex-direction:column;gap:4px;}
+.calf-vital{display:flex;justify-content:space-between;font-size:11px;padding:3px 0;border-bottom:1px solid #f5f5f5;}
+.calf-vital:last-child{border-bottom:none;}
+.calf-vital-lbl{color:#999;}
+.calf-vital-val{font-weight:600;}
+.activity-chart{height:40px;background:#F7F6F3;border-radius:4px;margin-top:8px;overflow:hidden;display:flex;align-items:flex-end;gap:1px;padding:2px;}
+.act-bar{flex:1;border-radius:2px;transition:height 0.3s;}
+
+/* ── CLIMA 12H ── */
+.climate-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px;}
+.climate-cell{background:#F7F6F3;border-radius:8px;padding:10px;text-align:center;}
+.climate-cell.alert{background:#FAEEDA;}
+.climate-cell.danger{background:#FCEBEB;}
+.climate-hour{font-size:10px;color:#999;margin-bottom:4px;}
+.climate-temp{font-size:16px;font-weight:700;}
+.climate-hli{font-size:10px;margin-top:2px;}
+.climate-rec{background:#E1F5EE;border-radius:6px;padding:10px 12px;font-size:12px;color:#0F6E56;margin-top:8px;}
+
+  </style>
+</head>
+<body>
+<div class="notif-container" id="notifContainer"></div>
+
+<div class="app-wrapper">
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="logo">Bovi<span>Watch</span></div>
+      <div class="tagline">Digital Twin · Monitoramento Preditivo de Gado Leiteiro</div>
+    </div>
+    <div class="topbar-right">
+      <div class="live-indicator"><div class="live-dot"></div>Tempo real</div>
+      <div class="lang-selector">
+      <button class="lang-btn active" data-lang="pt" onclick="setLang('pt')">🇵🇹 PT</button>
+      <button class="lang-btn" data-lang="en" onclick="setLang('en')">🇬🇧 EN</button>
+      <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">🇫🇷 FR</button>
+      <button class="lang-btn" data-lang="it" onclick="setLang('it')">🇮🇹 IT</button>
+      <button class="lang-btn" data-lang="de" onclick="setLang('de')">🇩🇪 DE</button>
+      <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">🇨🇳 中文</button>
+    </div>
+      <div class="notif-bell" onclick="toggleNotifPanel()" title="Notificações">
+      🔔<div class="notif-badge" id="notifBadge" style="display:none;">0</div>
+    </div>
+      <div class="topbar-metrics" id="topMetrics"></div>
+    </div>
+  </div>
+
+  <div class="main-nav">
+    <button class="nav-btn active" onclick="showSection('mapa',this)">🗺 Mapa Global</button>
+    <button class="nav-btn" onclick="showSection('rebanho',this)">🐄 Rebanho</button>
+    <button class="nav-btn" onclick="showSection('graficos',this)">📊 Gráficos</button>
+    <button class="nav-btn" onclick="showSection('alertas',this)">🔔 Alertas</button>
+    <button class="nav-btn" onclick="showSection('modulos',this)">⚙️ Módulos</button>
+    <button class="nav-btn" onclick="showSection('motor',this)">🧠 Motor Preditivo</button>
+    <button class="nav-btn" onclick="showSection('fazendas',this)">🏡 Fazendas</button>
+    <button class="nav-btn" onclick="showSection('bezerros',this)">🐮 Bezerros</button>
+  </div>
+
+  <div class="sections">
+
+    <!-- MAPA -->
+    <div id="section-mapa" class="section active">
+      <div class="map-layout">
+        <div class="map-container">
+          <div id="leafletMap"></div>
+          <div class="map-overlay-title">BoviWatch · Rede de Fazendas Monitoradas</div>
+          <div class="map-controls">
+            <button class="map-btn" onclick="setMapView('world')">🌍 Mundo</button>
+            <button class="map-btn" onclick="setMapView('europe')">🇪🇺 Europa</button>
+            <button class="map-btn" onclick="setMapView('farm')">🏡 Fazenda</button>
+          </div>
+          <div class="map-legend">
+            <div class="legend-item"><div class="legend-dot green"></div>Saudável</div>
+            <div class="legend-item"><div class="legend-dot amber"></div>Atenção</div>
+            <div class="legend-item"><div class="legend-dot red"></div>Crítico</div>
+            <div class="legend-item"><div class="legend-dot blue"></div>Fazenda piloto</div>
+          </div>
+        </div>
+        <div class="map-sidebar">
+          <div class="sidebar-title">Fazendas activas</div>
+          <div id="farmList"></div>
+          <div class="sidebar-title" style="margin-top:16px;">Animais no mapa</div>
+          <div id="mapAnimalList"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- REBANHO -->
+    <div id="section-rebanho" class="section">
+      <div class="section-header">
+        <h2>Rebanho Monitorado</h2>
+        <button class="btn-primary" onclick="openAddModal()">+ Cadastrar Animal</button>
+      </div>
+      <div class="animal-grid" id="animalGrid"></div>
+      <div class="animal-detail" id="animalDetail" style="display:none;"></div>
+    </div>
+
+    <!-- GRÁFICOS -->
+    <div id="section-graficos" class="section">
+      <div class="chart-tabs">
+        <button class="chart-tab active" onclick="switchChartTab('antes-depois',this)">Antes / Depois</button>
+        <button class="chart-tab" onclick="switchChartTab('tempo-real',this)">Tempo Real</button>
+        <button class="chart-tab" onclick="switchChartTab('evolucao',this)">Evolução Mensal</button>
+      </div>
+      <div id="ctab-antes-depois" class="chart-tab-content active">
+        <div class="charts-grid-2">
+          <div class="chart-card">
+            <div class="chart-card-header"><div class="chart-card-title">Score de Bem-Estar — Antes vs Depois</div><span class="badge green">↑ Melhora</span></div>
+            <div class="before-after-boxes">
+              <div class="ba-box before"><div class="ba-label">ANTES</div><div class="ba-value" id="baScoreBefore">0.74</div><div class="ba-sub">zona de risco</div></div>
+              <div class="ba-arrow">→</div>
+              <div class="ba-box after"><div class="ba-label">DEPOIS</div><div class="ba-value" id="baScoreAfter">0.42</div><div class="ba-sub">zona segura</div></div>
+            </div>
+            <canvas id="chartBeforeAfter"></canvas>
+          </div>
+          <div class="chart-card">
+            <div class="chart-card-header"><div class="chart-card-title">Produção de Leite (L/dia)</div><span class="badge green">↑ +12%</span></div>
+            <canvas id="chartMilk"></canvas>
+          </div>
+          <div class="chart-card">
+            <div class="chart-card-header"><div class="chart-card-title">Incidência de Doenças / mês</div><span class="badge green">↓ -63%</span></div>
+            <canvas id="chartDisease"></canvas>
+          </div>
+          <div class="chart-card">
+            <div class="chart-card-header"><div class="chart-card-title">Custo Operacional (€/animal/mês)</div><span class="badge green">↓ -28%</span></div>
+            <canvas id="chartCost"></canvas>
+          </div>
+        </div>
+      </div>
+      <div id="ctab-tempo-real" class="chart-tab-content">
+        <div class="realtime-header">
+          <div class="live-indicator big"><div class="live-dot"></div>Sensores ao vivo · atualiza a cada 3s</div>
+          <div id="rtClock" class="rt-clock">--:--:--</div>
+        </div>
+        <div class="charts-grid-2">
+          <div class="chart-card span2">
+            <div class="chart-card-header"><div class="chart-card-title">Score D/M* em tempo real — todos os animais</div></div>
+            <canvas id="chartRealtime"></canvas>
+          </div>
+          <div class="chart-card">
+            <div class="chart-card-header"><div class="chart-card-title">Temperatura corporal 24h</div></div>
+            <canvas id="chartTemp"></canvas>
+          </div>
+          <div class="chart-card">
+            <div class="chart-card-header"><div class="chart-card-title">Sensores ao vivo</div></div>
+            <div id="sensorBars"></div>
+          </div>
+        </div>
+      </div>
+      <div id="ctab-evolucao" class="chart-tab-content">
+        <div class="charts-grid-2">
+          <div class="chart-card span2">
+            <div class="chart-card-header">
+              <div class="chart-card-title">Evolução do Score D/M* — 12 meses</div>
+              <div class="time-btns">
+                <button class="time-btn active" onclick="setTimeRange('6m',this)">6m</button>
+                <button class="time-btn" onclick="setTimeRange('12m',this)">12m</button>
+              </div>
+            </div>
+            <canvas id="chartEvolution"></canvas>
+          </div>
+          <div class="chart-card">
+            <div class="chart-card-header"><div class="chart-card-title">Campos de Memória σ e φ</div></div>
+            <canvas id="chartMemory"></canvas>
+          </div>
+          <div class="chart-card">
+            <div class="chart-card-header"><div class="chart-card-title">Ruminação por animal (min/h)</div></div>
+            <canvas id="chartRumination"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ALERTAS -->
+    <div id="section-alertas" class="section">
+      <div class="section-header"><h2>Alertas Preditivos</h2></div>
+      <div class="alerts-layout">
+        <div id="alertsFeed"></div>
+        <div class="alerts-summary" id="alertsSummary"></div>
+      </div>
+    </div>
+
+    <!-- MÓDULOS -->
+    <div id="section-modulos" class="section">
+      <div class="section-header"><h2>7 Módulos do Desafio InoCrowd</h2></div>
+      <div class="modules-layout">
+        <div class="chart-card" style="flex:1;">
+          <div class="chart-card-title" style="margin-bottom:12px;">Cobertura BoviWatch vs Requisitos</div>
+          <canvas id="chartRadar" style="max-height:320px;"></canvas>
+        </div>
+        <div class="modules-list" id="modulesList"></div>
+      </div>
+    </div>
+
+    <!-- MOTOR PREDITIVO -->
+    <div id="section-motor" class="section">
+      <div class="section-header"><h2>Motor Preditivo</h2></div>
+      <div class="motor-grid" id="motorGrid"></div>
+    </div>
+
+    <!-- FAZENDAS DASHBOARD -->
+    <div id="section-fazendas" class="section">
+      <div class="section-header">
+        <h2>Dashboard por Fazenda</h2>
+        <button class="pdf-btn" onclick="exportPDF('fazenda')">📄 Exportar Relatório PDF</button>
+      </div>
+      <div class="farm-dashboard" id="farmDashboard"></div>
+      <div id="farmDetail" style="display:none;"></div>
+    </div>
+
+    <!-- BEZERROS -->
+    <div id="section-bezerros" class="section">
+      <div class="section-header">
+        <h2>Módulo Bezerros</h2>
+        <button class="pdf-btn" onclick="exportPDF('bezerros')">📄 Exportar Relatório PDF</button>
+      </div>
+      <div class="calves-grid" id="calvesGrid"></div>
+      <div style="margin-top:20px;">
+        <div class="section-header" style="margin-bottom:10px;"><h2 style="font-size:15px;">Previsão Microclima 12h</h2></div>
+        <div class="climate-grid" id="climateGrid"></div>
+        <div class="climate-rec" id="climateRec"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="addModal" style="display:none;">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Cadastrar Novo Animal</div>
+      <button class="modal-close" onclick="closeAddModal()">✕</button>
+    </div>
+    <div class="upload-area" id="uploadArea" onclick="document.getElementById('photoInput').click()">
+      <div id="uploadText">📷 Clique para carregar foto do animal</div>
+      <input type="file" id="photoInput" accept="image/*" style="display:none" onchange="handlePhoto(event)">
+    </div>
+    <button class="gps-btn" id="gpsBtn" onclick="captureGPS()">📡 Usar GPS do Chip</button>
+    <div class="gps-status" id="gpsStatus"></div>
+    <div class="form-grid">
+      <div class="form-group"><label>Nome / Identificação</label><input type="text" id="fName" placeholder="ex: Mimosa #47"></div>
+      <div class="form-group"><label>Idade (anos)</label><input type="number" id="fAge" placeholder="ex: 4"></div>
+      <div class="form-group"><label>Localização</label><input type="text" id="fLocal" placeholder="ex: Pasto A, Sector 2"></div>
+      <div class="form-group"><label>Score D/M* inicial (0.0–1.5)</label><input type="number" step="0.01" min="0" max="1.5" id="fScore" placeholder="ex: 0.35"></div>
+      <div class="form-group"><label>Peso (kg)</label><input type="number" id="fWeight" placeholder="ex: 550"></div>
+      <div class="form-group"><label>Nº de Lactação</label><input type="text" id="fLact" placeholder="ex: 2ª"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeAddModal()">Cancelar</button>
+      <button class="btn-primary" onclick="saveAnimal()">Cadastrar Animal</button>
+    </div>
+  </div>
+</div>
+<script>
+
+
+const LANGS = {
+  pt: {
+    title:'BoviWatch — Digital Twin · Bem-Estar Animal',
+    tagline:'Monitoramento Preditivo de Gado Leiteiro',
+    live:'Tempo real',
+    nav:['🗺 Mapa Global','🐄 Rebanho','📊 Gráficos','🔔 Alertas','⚙️ Módulos','🧠 Motor Preditivo','🏡 Fazendas','🐮 Bezerros'],
+    animals:'Animais', healthy:'Saudáveis', alertsLbl:'Alertas', avg:'D/M* médio',
+    farms:'Fazendas activas', animalsMap:'Animais no mapa',
+    herd:'Rebanho Monitorado', addAnimal:'+ Cadastrar Animal',
+    chartTabs:['Antes / Depois','Tempo Real','Evolução Mensal'],
+    alertsTitle:'Alertas Preditivos',
+    modulesTitle:'7 Módulos do Desafio InoCrowd',
+    motorTitle:'Motor Preditivo',
+    modalTitle:'Cadastrar Novo Animal',
+    photoBtn:'📷 Clique para carregar foto do animal',
+    fields:['Nome / Identificação','Idade (anos)','Localização','Score D/M* inicial (0.0–1.5)','Peso (kg)','Nº de Lactação'],
+    placeholders:['ex: Mimosa #47','ex: 4','ex: Pasto A','ex: 0.35','ex: 550','ex: 2ª'],
+    cancel:'Cancelar', save:'Cadastrar Animal',
+    healthy_lbl:'Saudável', warn_lbl:'Atenção', danger_lbl:'Crítico',
+    scoreLabel:'Score D/M*',
+    weight:'Peso', temp:'Temperatura', rumination:'Ruminação', forecast:'Previsão',
+    recommendation:'Recomendação',
+    gpsBtn:'📡 Usar GPS do Chip',
+    gpsOk:'📍 GPS capturado ✓', gpsWait:'⏳ Capturando GPS...',
+    mapOverlay:'BoviWatch · Rede de Fazendas Monitoradas',
+    worldBtn:'🌍 Mundo', europeBtn:'🇪🇺 Europa', farmBtn:'🏡 Fazenda',
+    legendHealthy:'Saudável', legendWarn:'Atenção', legendCrit:'Crítico', legendFarm:'Fazenda piloto',
+    sensorLive:'Sensores ao vivo · atualiza a cada 3s',
+  },
+  en: {
+    title:'BoviWatch — Digital Twin · Animal Welfare',
+    tagline:'Predictive Dairy Cattle Monitoring',
+    live:'Live',
+    nav:['🗺 Global Map','🐄 Herd','📊 Charts','🔔 Alerts','⚙️ Modules','🧠 Predictive Engine','🏡 Farms','🐮 Calves'],
+    animals:'Animals', healthy:'Healthy', alertsLbl:'Alerts', avg:'D/M* avg',
+    farms:'Active farms', animalsMap:'Animals on map',
+    herd:'Monitored Herd', addAnimal:'+ Register Animal',
+    chartTabs:['Before / After','Real Time','Monthly Evolution'],
+    alertsTitle:'Predictive Alerts',
+    modulesTitle:'7 InoCrowd Challenge Modules',
+    motorTitle:'Predictive Engine',
+    modalTitle:'Register New Animal',
+    photoBtn:'📷 Click to upload animal photo',
+    fields:['Name / ID','Age (years)','Location','Initial D/M* score (0.0–1.5)','Weight (kg)','Lactation No.'],
+    placeholders:['e.g. Daisy #47','e.g. 4','e.g. Pasture A','e.g. 0.35','e.g. 550','e.g. 2nd'],
+    cancel:'Cancel', save:'Register Animal',
+    healthy_lbl:'Healthy', warn_lbl:'Warning', danger_lbl:'Critical',
+    scoreLabel:'D/M* Score',
+    weight:'Weight', temp:'Temperature', rumination:'Rumination', forecast:'Forecast',
+    recommendation:'Recommendation',
+    gpsBtn:'📡 Use Chip GPS',
+    gpsOk:'📍 GPS captured ✓', gpsWait:'⏳ Capturing GPS...',
+    mapOverlay:'BoviWatch · Monitored Farm Network',
+    worldBtn:'🌍 World', europeBtn:'🇪🇺 Europe', farmBtn:'🏡 Farm',
+    legendHealthy:'Healthy', legendWarn:'Warning', legendCrit:'Critical', legendFarm:'Pilot farm',
+    sensorLive:'Live sensors · updates every 3s',
+  },
+  fr: {
+    title:'BoviWatch — Jumeau Numérique · Bien-être Animal',
+    tagline:'Surveillance prédictive du bétail laitier',
+    live:'En direct',
+    nav:['🗺 Carte Globale','🐄 Troupeau','📊 Graphiques','🔔 Alertes','⚙️ Modules','🧠 Moteur Prédictif','🏡 Fermes','🐮 Veaux'],
+    animals:'Animaux', healthy:'En santé', alertsLbl:'Alertes', avg:'D/M* moy.',
+    farms:'Fermes actives', animalsMap:'Animaux sur la carte',
+    herd:'Troupeau surveillé', addAnimal:'+ Enregistrer un animal',
+    chartTabs:['Avant / Après','Temps Réel','Évolution Mensuelle'],
+    alertsTitle:'Alertes Prédictives',
+    modulesTitle:'7 Modules du Défi InoCrowd',
+    motorTitle:'Moteur Prédictif',
+    modalTitle:'Enregistrer un nouvel animal',
+    photoBtn:'📷 Cliquez pour charger la photo',
+    fields:['Nom / Identification','Âge (ans)','Emplacement','Score D/M* initial (0.0–1.5)','Poids (kg)','N° de Lactation'],
+    placeholders:['ex: Marguerite #47','ex: 4','ex: Pâturage A','ex: 0.35','ex: 550','ex: 2e'],
+    cancel:'Annuler', save:'Enregistrer',
+    healthy_lbl:'Sain', warn_lbl:'Attention', danger_lbl:'Critique',
+    scoreLabel:'Score D/M*',
+    weight:'Poids', temp:'Température', rumination:'Rumination', forecast:'Prévision',
+    recommendation:'Recommandation',
+    gpsBtn:'📡 Utiliser GPS de la Puce',
+    gpsOk:'📍 GPS capturé ✓', gpsWait:'⏳ Capture GPS...',
+    mapOverlay:'BoviWatch · Réseau de fermes surveillées',
+    worldBtn:'🌍 Monde', europeBtn:'🇪🇺 Europe', farmBtn:'🏡 Ferme',
+    legendHealthy:'Sain', legendWarn:'Attention', legendCrit:'Critique', legendFarm:'Ferme pilote',
+    sensorLive:'Capteurs en direct · mise à jour toutes les 3s',
+  },
+  it: {
+    title:'BoviWatch — Gemello Digitale · Benessere Animale',
+    tagline:'Monitoraggio predittivo del bestiame da latte',
+    live:'In tempo reale',
+    nav:['🗺 Mappa Globale','🐄 Mandria','📊 Grafici','🔔 Avvisi','⚙️ Moduli','🧠 Motore Predittivo','🏡 Aziende','🐮 Vitelli'],
+    animals:'Animali', healthy:'Sani', alertsLbl:'Avvisi', avg:'D/M* medio',
+    farms:'Aziende attive', animalsMap:'Animali sulla mappa',
+    herd:'Mandria monitorata', addAnimal:'+ Registra Animale',
+    chartTabs:['Prima / Dopo','Tempo Reale','Evoluzione Mensile'],
+    alertsTitle:'Avvisi Predittivi',
+    modulesTitle:'7 Moduli della Sfida InoCrowd',
+    motorTitle:'Motore Predittivo',
+    modalTitle:'Registra Nuovo Animale',
+    photoBtn:'📷 Clicca per caricare foto',
+    fields:['Nome / ID','Età (anni)','Posizione','Score D/M* iniziale (0.0–1.5)','Peso (kg)','N° Lattazione'],
+    placeholders:['es: Margherita #47','es: 4','es: Pascolo A','es: 0.35','es: 550','es: 2a'],
+    cancel:'Annulla', save:'Registra Animale',
+    healthy_lbl:'Sano', warn_lbl:'Attenzione', danger_lbl:'Critico',
+    scoreLabel:'Score D/M*',
+    weight:'Peso', temp:'Temperatura', rumination:'Ruminazione', forecast:'Previsione',
+    recommendation:'Raccomandazione',
+    gpsBtn:'📡 Usa GPS del Chip',
+    gpsOk:'📍 GPS acquisito ✓', gpsWait:'⏳ Acquisizione GPS...',
+    mapOverlay:'BoviWatch · Rete di aziende monitorate',
+    worldBtn:'🌍 Mondo', europeBtn:'🇪🇺 Europa', farmBtn:'🏡 Azienda',
+    legendHealthy:'Sano', legendWarn:'Attenzione', legendCrit:'Critico', legendFarm:'Azienda pilota',
+    sensorLive:'Sensori in diretta · aggiorna ogni 3s',
+  },
+  de: {
+    title:'BoviWatch — Digitaler Zwilling · Tierwohl',
+    tagline:'Prädiktive Milchviehüberwachung',
+    live:'Live',
+    nav:['🗺 Weltkarte','🐄 Herde','📊 Diagramme','🔔 Warnungen','⚙️ Module','🧠 Prädiktions-Motor','🏡 Betriebe','🐮 Kälber'],
+    animals:'Tiere', healthy:'Gesund', alertsLbl:'Warnungen', avg:'D/M* Mittel',
+    farms:'Aktive Betriebe', animalsMap:'Tiere auf der Karte',
+    herd:'Überwachte Herde', addAnimal:'+ Tier registrieren',
+    chartTabs:['Vorher / Nachher','Echtzeit','Monatliche Entwicklung'],
+    alertsTitle:'Prädiktive Warnungen',
+    modulesTitle:'7 Module der InoCrowd-Challenge',
+    motorTitle:'Prädiktions-Motor',
+    modalTitle:'Neues Tier registrieren',
+    photoBtn:'📷 Klicken um Foto hochzuladen',
+    fields:['Name / ID','Alter (Jahre)','Standort','Anfangs-Score D/M* (0.0–1.5)','Gewicht (kg)','Laktations-Nr.'],
+    placeholders:['z.B. Elsa #47','z.B. 4','z.B. Weide A','z.B. 0.35','z.B. 550','z.B. 2.'],
+    cancel:'Abbrechen', save:'Tier registrieren',
+    healthy_lbl:'Gesund', warn_lbl:'Warnung', danger_lbl:'Kritisch',
+    scoreLabel:'D/M* Score',
+    weight:'Gewicht', temp:'Temperatur', rumination:'Wiederkäuen', forecast:'Prognose',
+    recommendation:'Empfehlung',
+    gpsBtn:'📡 Chip-GPS verwenden',
+    gpsOk:'📍 GPS erfasst ✓', gpsWait:'⏳ GPS wird erfasst...',
+    mapOverlay:'BoviWatch · Überwachtes Betriebsnetz',
+    worldBtn:'🌍 Welt', europeBtn:'🇪🇺 Europa', farmBtn:'🏡 Betrieb',
+    legendHealthy:'Gesund', legendWarn:'Warnung', legendCrit:'Kritisch', legendFarm:'Pilotbetrieb',
+    sensorLive:'Live-Sensoren · aktualisiert alle 3s',
+  },
+  zh: {
+    title:'BoviWatch — 数字孪生 · 动物福利',
+    tagline:'奶牛预测性监控系统',
+    live:'实时',
+    nav:['🗺 全球地图','🐄 畜群','📊 图表','🔔 警报','⚙️ 模块','🧠 预测引擎','🏡 农场','🐮 犊牛'],
+    animals:'动物', healthy:'健康', alertsLbl:'警报', avg:'D/M* 均值',
+    farms:'活跃农场', animalsMap:'地图上的动物',
+    herd:'受监控畜群', addAnimal:'+ 注册动物',
+    chartTabs:['前后对比','实时','月度演变'],
+    alertsTitle:'预测警报',
+    modulesTitle:'InoCrowd挑战7个模块',
+    motorTitle:'预测引擎',
+    modalTitle:'注册新动物',
+    photoBtn:'📷 点击上传动物照片',
+    fields:['名称/编号','年龄（岁）','位置','初始D/M*分数 (0.0–1.5)','体重（kg）','泌乳期编号'],
+    placeholders:['例：小花 #47','例：4','例：牧场A','例：0.35','例：550','例：第2胎'],
+    cancel:'取消', save:'注册动物',
+    healthy_lbl:'健康', warn_lbl:'注意', danger_lbl:'危急',
+    scoreLabel:'D/M* 分数',
+    weight:'体重', temp:'体温', rumination:'反刍', forecast:'预测',
+    recommendation:'建议',
+    gpsBtn:'📡 使用芯片GPS',
+    gpsOk:'📍 GPS已捕获 ✓', gpsWait:'⏳ 正在捕获GPS...',
+    mapOverlay:'BoviWatch · 受监控农场网络',
+    worldBtn:'🌍 世界', europeBtn:'🇪🇺 欧洲', farmBtn:'🏡 农场',
+    legendHealthy:'健康', legendWarn:'注意', legendCrit:'危急', legendFarm:'试点农场',
+    sensorLive:'实时传感器 · 每3秒更新',
+  }
+};
+
+let currentLang = 'pt';
+function T(key) { return (LANGS[currentLang]||LANGS.pt)[key] || key; }
+
+function applyLang() {
+  const t = LANGS[currentLang]||LANGS.pt;
+  document.title = t.title;
+  document.querySelector('.tagline').textContent = t.tagline;
+  document.querySelector('.live-indicator').innerHTML = `<div class="live-dot"></div>${t.live}`;
+  // nav buttons
+  document.querySelectorAll('.nav-btn').forEach((b,i)=>{ if(t.nav[i]) b.textContent=t.nav[i]; });
+  // map overlay
+  const mo=document.querySelector('.map-overlay-title'); if(mo) mo.textContent=t.mapOverlay;
+  // map buttons
+  const mapBtns=document.querySelectorAll('.map-btn');
+  if(mapBtns[0]) mapBtns[0].textContent=t.worldBtn;
+  if(mapBtns[1]) mapBtns[1].textContent=t.europeBtn;
+  if(mapBtns[2]) mapBtns[2].textContent=t.farmBtn;
+  // legend
+  const ldots=document.querySelectorAll('.legend-item');
+  const lbls=[t.legendHealthy,t.legendWarn,t.legendCrit,t.legendFarm];
+  ldots.forEach((el,i)=>{ if(lbls[i]) el.childNodes[1] && (el.childNodes[1].textContent=lbls[i]); });
+  // sidebar titles
+  const stits=document.querySelectorAll('.sidebar-title');
+  if(stits[0]) stits[0].textContent=t.farms;
+  if(stits[1]) stits[1].textContent=t.animalsMap;
+  // chart tabs
+  document.querySelectorAll('.chart-tab').forEach((b,i)=>{ if(t.chartTabs[i]) b.textContent=t.chartTabs[i]; });
+  // section headers
+  const h2s=document.querySelectorAll('.section-header h2');
+  if(h2s[0]) h2s[0].textContent=t.herd;
+  if(h2s[1]) h2s[1].textContent=t.alertsTitle;
+  if(h2s[2]) h2s[2].textContent=t.modulesTitle;
+  if(h2s[3]) h2s[3].textContent=t.motorTitle;
+  // add animal button
+  const addBtn=document.querySelector('.section-header .btn-primary'); if(addBtn) addBtn.textContent=t.addAnimal;
+  // modal
+  const mt=document.querySelector('.modal-title'); if(mt) mt.textContent=t.modalTitle;
+  const ut=document.getElementById('uploadText'); if(ut) ut.textContent=t.photoBtn;
+  // form labels
+  document.querySelectorAll('.form-group label').forEach((l,i)=>{ if(t.fields[i]) l.textContent=t.fields[i]; });
+  document.querySelectorAll('.form-group input').forEach((inp,i)=>{ if(t.placeholders[i]) inp.placeholder=t.placeholders[i]; });
+  const btns=document.querySelectorAll('.modal-actions button');
+  if(btns[0]) btns[0].textContent=t.cancel;
+  if(btns[1]) btns[1].textContent=t.save;
+  // GPS button
+  const gb=document.getElementById('gpsBtn'); if(gb) gb.textContent=t.gpsBtn;
+  // sensor live
+  const sl=document.querySelector('.live-indicator.big'); if(sl) sl.innerHTML=`<div class="live-dot"></div>${t.sensorLive}`;
+  // re-render dynamic content
+  renderTopMetrics();
+  renderAnimalGrid();
+  MapModule.renderFarmList && MapModule.renderFarmList();
+  MapModule.renderMapAnimalList && MapModule.renderMapAnimalList();
+}
+
+function setLang(lang) {
+  currentLang = lang;
+  document.querySelectorAll('.lang-btn').forEach(b=>b.classList.toggle('active', b.dataset.lang===lang));
+  applyLang();
+}
+
+
+// ─── GPS CHIP ─────────────────────────────────────────────────────────────────
+let _pendingGPS = null;
+
+function captureGPS() {
+  const btn = document.getElementById('gpsBtn');
+  const status = document.getElementById('gpsStatus');
+  const t = LANGS[currentLang]||LANGS.pt;
+  btn.textContent = t.gpsWait;
+  btn.disabled = true;
+  if (!navigator.geolocation) {
+    // Simula GPS de chip (demo) com coordenadas aleatórias em Portugal
+    _pendingGPS = { lat: 39.5 + Math.random()*2, lon: -8.8 + Math.random()*1.5 };
+    btn.textContent = t.gpsOk;
+    status.textContent = `📍 ${_pendingGPS.lat.toFixed(5)}°N, ${_pendingGPS.lon.toFixed(5)}°E`;
+    btn.disabled = false;
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      _pendingGPS = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+      btn.textContent = t.gpsOk;
+      status.textContent = `📍 ${_pendingGPS.lat.toFixed(5)}°N, ${_pendingGPS.lon.toFixed(5)}°E (±${Math.round(pos.coords.accuracy)}m)`;
+      btn.disabled = false;
+    },
+    () => {
+      // fallback demo
+      _pendingGPS = { lat: 39.5 + Math.random()*2, lon: -8.8 + Math.random()*1.5 };
+      btn.textContent = t.gpsOk + ' (demo)';
+      status.textContent = `📍 ${_pendingGPS.lat.toFixed(5)}°N, ${_pendingGPS.lon.toFixed(5)}°E`;
+      btn.disabled = false;
+    },
+    { timeout: 8000 }
+  );
+}
+
+
+
+// ─── DADOS ───────────────────────────────────────────────────────────────────
+const ANIMALS = [
+  { id:1, name:"Mimosa #12", emoji:"🐄", age:5, local:"Pasto A", score:0.22, scoreBefore:0.68, status:"ok", lat:40.4, lon:-8.2, country:"Portugal", lactation:"3ª", weight:"580kg", temp:"38.4°C", rumination:"Normal", sigma:0.31, phi:0.18, photo:null, tempHistory:[38.2,38.3,38.4,38.3,38.4,38.5,38.3,38.4,38.2,38.3,38.4,38.3,38.2,38.4,38.3,38.5,38.4,38.3,38.4,38.3,38.2,38.3,38.4,38.3], milkHistory:[18,18.5,19,18.8,19.2,19.5,19.3,19.8,20,19.9,20.2,20.5], sigmaHistory:[0.55,0.52,0.48,0.44,0.40,0.36,0.33,0.31,0.29,0.27,0.25,0.22], phiHistory:[0.38,0.33,0.28,0.25,0.22,0.20,0.19,0.18,0.17,0.17,0.18,0.18], ruminHistory:[42,44,45,43,46,47,48,46,49,50,51,52] },
+  { id:2, name:"Estrela #07", emoji:"🐮", age:3, local:"Pasto B", score:0.71, scoreBefore:0.92, status:"warn", lat:41.1, lon:-8.6, country:"Portugal", lactation:"1ª", weight:"510kg", temp:"39.1°C", rumination:"Reduzida", sigma:0.62, phi:0.44, photo:null, tempHistory:[38.5,38.7,38.9,39.0,39.1,39.2,39.1,39.0,38.9,38.8,38.7,38.8,39.0,39.1,39.2,39.3,39.1,38.9,38.8,38.7,38.8,39.0,39.1,39.1], milkHistory:[14,13.5,13,13.2,13.5,14,14.2,14.5,14.8,15,15.3,15.5], sigmaHistory:[0.80,0.78,0.76,0.74,0.72,0.70,0.69,0.68,0.67,0.67,0.68,0.71], phiHistory:[0.58,0.54,0.50,0.47,0.45,0.44,0.44,0.44,0.43,0.43,0.44,0.44], ruminHistory:[28,26,25,27,26,28,29,30,31,32,31,30] },
+  { id:3, name:"Boneca #23", emoji:"🐄", age:7, local:"Pasto A", score:0.18, scoreBefore:0.55, status:"ok", lat:39.7, lon:-8.0, country:"Portugal", lactation:"5ª", weight:"620kg", temp:"38.2°C", rumination:"Normal", sigma:0.28, phi:0.12, photo:null, tempHistory:[38.1,38.2,38.1,38.2,38.3,38.2,38.1,38.2,38.1,38.2,38.1,38.2,38.1,38.2,38.3,38.2,38.1,38.2,38.1,38.2,38.1,38.2,38.1,38.2], milkHistory:[22,22.3,22.8,23,23.2,23.5,23.8,24,24.2,24.5,24.8,25], sigmaHistory:[0.42,0.38,0.35,0.32,0.30,0.28,0.27,0.26,0.24,0.23,0.21,0.18], phiHistory:[0.28,0.24,0.21,0.18,0.16,0.14,0.13,0.13,0.12,0.12,0.12,0.12], ruminHistory:[52,53,54,55,54,56,57,58,57,59,60,61] },
+  { id:4, name:"Pipa #31", emoji:"🐮", age:4, local:"Pasto C", score:0.55, scoreBefore:0.78, status:"ok", lat:40.8, lon:-8.4, country:"Portugal", lactation:"2ª", weight:"545kg", temp:"38.7°C", rumination:"Normal", sigma:0.44, phi:0.29, photo:null, tempHistory:[38.3,38.4,38.5,38.6,38.7,38.7,38.6,38.5,38.4,38.5,38.6,38.7,38.6,38.5,38.4,38.5,38.6,38.7,38.6,38.5,38.4,38.5,38.6,38.7], milkHistory:[16,16.2,16.5,16.8,17,17.3,17.5,17.8,18,18.2,18.5,18.8], sigmaHistory:[0.68,0.65,0.62,0.60,0.58,0.56,0.55,0.54,0.53,0.53,0.54,0.55], phiHistory:[0.42,0.38,0.35,0.33,0.31,0.30,0.29,0.29,0.29,0.29,0.29,0.29], ruminHistory:[38,39,40,41,40,42,43,44,43,45,44,45] }
+];
+
+const FARMS = [
+  { name:"Fazenda Piloto — Lisboa", lat:38.7, lon:-9.1, units:320, country:"Portugal", active:true },
+  { name:"Unidade Porto",           lat:41.2, lon:-8.6, units:185, country:"Portugal", active:true },
+  { name:"Expansão — Espanha",      lat:40.4, lon:-3.7, units:0,   country:"Espanha",  active:false },
+  { name:"Expansão — França",       lat:46.2, lon:2.2,  units:0,   country:"França",   active:false }
+];
+
+const MODULES = [
+  { num:1, name:"Biomecânica e Locomoção", desc:"Análise 3D esqueletal, detecção de coxeira, ocupação de cubículos, padrão de marcha", status:"ok", field:"Câmeras + IA", coverage:95 },
+  { num:2, name:"Fisiologia e Condição Corporal", desc:"Stress térmico (HLI), frequência cardíaca, ruminação, detecção preditiva de mastite", status:"ok", field:"Sensores + Coleiras", coverage:90 },
+  { num:3, name:"Ambiente e Microclima", desc:"Qualidade do ar (NH₃), ventilação, temperatura, humidade relativa, conforto térmico", status:"warn", field:"Sensores Ambientais", coverage:85 },
+  { num:4, name:"Comportamento Social e Emocional", desc:"QBA automático, análise facial FACS adaptada ao bovino, vocalização, postura da cauda", status:"ok", field:"Câmeras Térmicas + IA", coverage:88 },
+  { num:5, name:"Manejo e Simulação de Cenários", desc:"Impacto de intervenções na produtividade, sensores na sala de ordenha, simulação Digital Twin", status:"ok", field:"Digital Twin", coverage:92 },
+  { num:6, name:"Módulo Específico para Bezerros", desc:"Monitoramento neonatal, diarreia, pneumonia, qualidade da cama, balanço repouso-actividade", status:"ok", field:"Câmeras + Sensores", coverage:80 },
+  { num:7, name:"Integração com Sistemas Existentes", desc:"Coleiras, câmeras térmicas, acelerómetros, sistemas comerciais via API interoperável", status:"warn", field:"API / Interoperabilidade", coverage:87 }
+];
+
+const ALERTS_DATA = [
+  { cow:"Estrela #07", type:"warn", title:"Score D/M* = 0.71 — Zona de atenuação", body:"Ruminação reduzida detectada pelo sensor de coleira. Campo de memória indica tendência de stress crescente. Recomenda-se monitorização veterinária nas próximas 48h.", time:"2h atrás", module:"Fisiologia" },
+  { cow:"Estrela #07", type:"warn", title:"Campo de memória curta — Eco de stress recente", body:"Possível impacto pós-parto ainda activo. Temperatura ligeiramente elevada (39.1°C). Sugere-se revisão do protocolo de manejo.", time:"6h atrás", module:"Biomecânica" },
+  { cow:"Pipa #31",    type:"ok",   title:"Score D/M* = 0.55 — Zona intermediária estável", body:"Comportamento social normal. Produção de leite em linha com histórico. Acompanhar nas próximas 72h sem intervenção.", time:"1 dia", module:"Comportamento" },
+  { cow:"Fazenda Piloto", type:"warn", title:"Módulo Ambiente — Alerta de Microclima", body:"Temperatura interna da unidade 1.2°C acima do limiar de conforto. Activar ventilação mecânica zona norte. Risco de stress térmico em 4h.", time:"30 min", module:"Ambiente" },
+  { cow:"Mimosa #12",  type:"ok",   title:"Score D/M* = 0.22 — Zona segura", body:"Todos os indicadores dentro dos parâmetros normais. Produção de leite em máximo histórico (20.5L/dia). Sem acção necessária.", time:"3h atrás", module:"Fisiologia" }
+];
+
+// ─── PREDICTOR ───────────────────────────────────────────────────────────────
+const Predictor = (() => {
+  const _p = { m_gap:0.522, lambda:13.4 };
+  function scoreColor(s) { if(s<0.3) return '#1D9E75'; if(s<0.8) return '#EF9F27'; return '#E24B4A'; }
+  function statusFromScore(s) { if(s<0.3) return 'ok'; if(s<0.8) return 'warn'; return 'danger'; }
+  function simulateSensor(v, vol) { return Math.max(0.05, Math.min(1.45, +(v + (Math.random()-0.48)*vol).toFixed(3))); }
+  function alertLevel(r) {
+    if(r<0.3)  return { level:'INATIVO',   color:'#1D9E75', bg:'#E1F5EE', label:'Inativo' };
+    if(r<0.8)  return { level:'MONITORAR', color:'#BA7517', bg:'#FAEEDA', label:'Atenção' };
+    if(r<1.2)  return { level:'AGIR',      color:'#D85A30', bg:'#FAECE7', label:'Agir' };
+    return             { level:'CRÍTICO',  color:'#E24B4A', bg:'#FCEBEB', label:'Crítico' };
+  }
+  function leadTime(sigma) {
+    if(sigma>0.70) return '18 meses de antecedência';
+    if(sigma>0.50) return '12 meses de antecedência';
+    return '6 meses de antecedência';
+  }
+  function computeRisk(a) {
+    const I=a.score||0, Y=a.sigma||0, C=a.phi||0, P=(parseFloat(a.temp)>39)?0.3:0;
+    const D2=(I*I)+(Y*Y)+(P*P)+(C*C)+2*(I*Y)+2*(Y*C);
+    const ratio=Math.sqrt(D2)/_p.m_gap;
+    return { D2:+D2.toFixed(4), ratio:+ratio.toFixed(3) };
+  }
+  function describeAnimal(a) {
+    const risk=computeRisk(a), al=alertLevel(risk.ratio);
+    const recs = {
+      'INATIVO':   'Manter monitorização padrão. Sem intervenção necessária.',
+      'MONITORAR': `Aumentar frequência de leituras para ${a.name}. Verificar ruminação e temperatura nas próximas 24h.`,
+      'AGIR':      `Acção recomendada para ${a.name}: contactar veterinário, rever alimentação. Considerar cuidados preventivos.`,
+      'CRÍTICO':   `ALERTA MÁXIMO — ${a.name} requer intervenção imediata. Isolamento preventivo e avaliação veterinária urgente.`
+    };
+    return { riskLevel:al.level, riskColor:al.color, riskBg:al.bg, leadTime:leadTime(a.sigma||0), recommendation:recs[al.level] };
+  }
+  return { scoreColor, statusFromScore, simulateSensor, alertLevel, leadTime, computeRisk, describeAnimal };
+})();
+
+// ─── MAPA LEAFLET ────────────────────────────────────────────────────────────
+const MapModule = (() => {
+  let map=null, farmMarkers=[], animalMarkers=[], animalLayers={};
+  const VIEWS = {
+    world:  { center:[40.0,-5.0], zoom:5 },
+    europe: { center:[46.0, 8.0], zoom:4 },
+    farm:   { center:[40.2,-8.3], zoom:9 }
+  };
+  function mkFarmIcon(active) {
+    const c=active?'#378ADD':'#B5D4F4';
+    const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28">${active?`<circle cx="14" cy="14" r="13" fill="${c}" opacity="0.18"/>`:''}
+      <circle cx="14" cy="14" r="8" fill="${c}" opacity="0.35"/><circle cx="14" cy="14" r="5" fill="${c}" stroke="white" stroke-width="2"/></svg>`;
+    return L.divIcon({ html:svg, className:'', iconSize:[28,28], iconAnchor:[14,14], popupAnchor:[0,-14] });
+  }
+  function mkAnimalIcon(score, status) {
+    const c=Predictor.scoreColor(score);
+    const pulse=status==='warn'?`<circle cx="14" cy="14" r="13" fill="none" stroke="${c}" stroke-width="1.5" opacity="0.5"/>`:'';
+    const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28">${pulse}
+      <circle cx="14" cy="14" r="9" fill="${c}" stroke="white" stroke-width="2"/>
+      <text x="14" y="18" text-anchor="middle" font-size="8" font-weight="700" fill="white" font-family="sans-serif">${score.toFixed(1)}</text></svg>`;
+    return L.divIcon({ html:svg, className:'', iconSize:[28,28], iconAnchor:[14,14], popupAnchor:[0,-14] });
+  }
+  function init() {
+    const el=document.getElementById('leafletMap');
+    if(!el||map) return;
+    map=L.map('leafletMap',{ center:VIEWS.world.center, zoom:VIEWS.world.zoom, zoomControl:true, scrollWheelZoom:true, dragging:true, touchZoom:true });
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{ attribution:'&copy; OpenStreetMap', maxZoom:18 }).addTo(map);
+    drawFarms(); drawAnimals(); renderFarmList(); renderMapAnimalList();
+    // Botão GPS trail no mapa
+    const trailControl = L.control({position:'bottomright'});
+    trailControl.onAdd = function(){ const d=L.DomUtil.create('div'); d.innerHTML='<button onclick="MapModule.toggleTrails()" style="padding:6px 10px;background:rgba(255,255,255,0.95);border:1px solid rgba(0,0,0,0.1);border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;">📍 GPS Trail</button>'; return d; };
+    trailControl.addTo(map);
+    GPSTrail.startLiveUpdate(map);
+  }
+  function drawFarms() {
+    farmMarkers.forEach(m=>map&&map.removeLayer(m)); farmMarkers=[];
+    FARMS.forEach(f=>{
+      const m=L.marker([f.lat,f.lon],{icon:mkFarmIcon(f.active)});
+      m.bindPopup(`<div style="font-family:sans-serif;font-size:13px;min-width:160px;"><b>${f.name}</b><br>${f.active?f.units+' unidades activas':'Expansão prevista 2027'}<br><span style="color:#888;font-size:11px;">${f.country}</span></div>`,{maxWidth:220});
+      m.addTo(map); farmMarkers.push(m);
+    });
+  }
+  function drawAnimals() {
+    animalMarkers.forEach(m=>map&&map.removeLayer(m)); animalMarkers={}; animalLayers={};
+    ANIMALS.forEach(a=>{
+      const c=Predictor.scoreColor(a.score);
+      const al=Predictor.alertLevel(Predictor.computeRisk(a).ratio);
+      const m=L.marker([a.lat,a.lon],{icon:mkAnimalIcon(a.score,a.status)});
+      m.bindPopup(`<div style="font-family:sans-serif;font-size:13px;min-width:180px;">
+        <b>${a.emoji} ${a.name}</b><br>
+        <span style="color:${c};font-weight:600;">D/M* = ${a.score.toFixed(2)} · ${al.label}</span><br>
+        <span style="color:#555;">${a.local} · ${a.country}</span><br>
+        <span style="color:#888;font-size:11px;">Temp: ${a.temp} · ${a.lactation} lactação</span><br>
+        <button onclick="AppState.selectAnimal(${a.id})" style="margin-top:8px;background:${c};color:white;border:none;border-radius:5px;padding:5px 10px;font-size:11px;cursor:pointer;width:100%;">Ver ficha completa</button>
+      </div>`,{maxWidth:220});
+      m.addTo(map); animalLayers[a.id]=m;
+    });
+  }
+  function setView(v) {
+    if(!map) return;
+    const vw=VIEWS[v]||VIEWS.world;
+    map.flyTo(vw.center, vw.zoom, {duration:1.2});
+  }
+  function focusAnimal(id) {
+    const a=ANIMALS.find(x=>x.id===id);
+    if(!a||!map) return;
+    map.flyTo([a.lat,a.lon],12,{duration:1});
+    setTimeout(()=>{ if(animalLayers[id]) animalLayers[id].openPopup(); },1100);
+  }
+  function renderFarmList() {
+    const el=document.getElementById('farmList'); if(!el) return;
+    el.innerHTML=FARMS.map(f=>`<div class="farm-item" onclick="MapModule.setView('farm')">
+      <div class="farm-name">${f.active?'🟢':'⚪'} ${f.name}</div>
+      <div class="farm-meta">${f.active?f.units+' unidades · activa':'Expansão prevista'} · ${f.country}</div>
+    </div>`).join('');
+  }
+  function renderMapAnimalList() {
+    const el=document.getElementById('mapAnimalList'); if(!el) return;
+    el.innerHTML=ANIMALS.map(a=>`<div class="farm-item" onclick="MapModule.focusAnimal(${a.id})">
+      <div class="farm-name">${a.emoji} ${a.name}</div>
+      <div class="farm-meta" style="color:${Predictor.scoreColor(a.score)}">D/M* = ${a.score.toFixed(2)} · ${a.local}</div>
+    </div>`).join('');
+  }
+  let trailsVisible = false;
+  function toggleTrails() {
+    trailsVisible = !trailsVisible;
+    if(trailsVisible) { ANIMALS.forEach(a => GPSTrail.drawTrail(map, a)); }
+    else { GPSTrail.clearTrails(map); }
+  }
+  return { init, setView, focusAnimal, drawAnimals, renderFarmList, renderMapAnimalList, toggleTrails };
+})();
+function setMapView(v) { MapModule.setView(v); }
+
+// ─── APP STATE ────────────────────────────────────────────────────────────────
+const AppState = (() => {
+  let selectedId=ANIMALS[0].id;
+  function getSelectedAnimal() { return ANIMALS.find(a=>a.id===selectedId)||ANIMALS[0]; }
+  function selectAnimal(id) {
+    selectedId=id;
+    renderAnimalGrid(); renderAnimalDetail();
+    ChartsModule.refreshAll(getSelectedAnimal());
+    showSection('rebanho', document.querySelectorAll('.nav-btn')[1]);
+  }
+  return { get selectedAnimalId(){return selectedId;}, getSelectedAnimal, selectAnimal };
+})();
+
+// ─── CHARTS ───────────────────────────────────────────────────────────────────
+const ChartsModule = (() => {
+  const charts={};
+  const M6=['Nov','Dez','Jan','Fev','Mar','Abr'], M12=['Mai','Jun','Jul','Ago','Set','Out','Nov','Dez','Jan','Fev','Mar','Abr'];
+  const H24=Array.from({length:24},(_,i)=>`${i}h`);
+  let timeRange='6m', rtData=Array(24).fill(null).map(()=>+(0.25+Math.random()*0.35).toFixed(2)), rtInterval=null;
+  const base={ responsive:true, maintainAspectRatio:false, plugins:{ legend:{display:false}, tooltip:{backgroundColor:'#fff',titleColor:'#222',bodyColor:'#555',borderColor:'#ddd',borderWidth:1,padding:10} }, scales:{ x:{grid:{display:false},ticks:{font:{size:10},color:'#999'}}, y:{grid:{color:'rgba(0,0,0,0.04)'},ticks:{font:{size:10},color:'#999'}} } };
+  function mk(id,cfg){ const el=document.getElementById(id); if(!el) return null; if(charts[id]) charts[id].destroy(); charts[id]=new Chart(el.getContext('2d'),cfg); return charts[id]; }
+  function buildBeforeAfter(){ mk('chartBeforeAfter',{type:'bar',data:{labels:ANIMALS.map(a=>a.name.split(' ')[0]),datasets:[{label:'Antes',data:ANIMALS.map(a=>a.scoreBefore),backgroundColor:'#F09595',borderRadius:5,borderSkipped:false},{label:'Depois (BoviWatch)',data:ANIMALS.map(a=>a.score),backgroundColor:'#5DCAA5',borderRadius:5,borderSkipped:false}]},options:{...base,plugins:{...base.plugins,legend:{display:true,labels:{font:{size:10},boxWidth:12,color:'#666'}}},scales:{...base.scales,y:{...base.scales.y,min:0,max:1.5}}}}); }
+  function buildMilk(a){ const ss=timeRange==='6m'?6:0,lb=timeRange==='6m'?M6:M12; mk('chartMilk',{type:'line',data:{labels:lb,datasets:[{label:'Sem sistema',data:a.milkHistory.slice(ss).map(v=>+(v*0.88).toFixed(1)),borderColor:'#F09595',backgroundColor:'rgba(240,149,149,0.08)',tension:0.4,fill:true,pointRadius:3},{label:'Com BoviWatch',data:a.milkHistory.slice(ss),borderColor:'#1D9E75',backgroundColor:'rgba(29,158,117,0.08)',tension:0.4,fill:true,pointRadius:3}]},options:{...base,plugins:{...base.plugins,legend:{display:true,labels:{font:{size:10},boxWidth:12,color:'#666'}}}}}); }
+  function buildDisease(){ mk('chartDisease',{type:'bar',data:{labels:M12,datasets:[{label:'Sem monitoramento',data:[3,4,3,5,4,3,2,2,1,1,1,1],backgroundColor:'#F09595',borderRadius:4,borderSkipped:false},{label:'Com BoviWatch',data:[3,4,3,5,4,3,1,1,0,1,0,0],backgroundColor:'#5DCAA5',borderRadius:4,borderSkipped:false}]},options:{...base,plugins:{...base.plugins,legend:{display:true,labels:{font:{size:10},boxWidth:12,color:'#666'}}},scales:{...base.scales,y:{...base.scales.y,min:0,max:6}}}}); }
+  function buildCost(){ mk('chartCost',{type:'line',data:{labels:M12,datasets:[{label:'Sem sistema (€/animal)',data:[85,88,90,92,89,91,88,86,84,82,80,79],borderColor:'#F09595',backgroundColor:'rgba(240,149,149,0.08)',tension:0.4,fill:true,pointRadius:3},{label:'Com BoviWatch (€/animal)',data:[85,88,90,92,89,85,78,72,68,65,63,61],borderColor:'#1D9E75',backgroundColor:'rgba(29,158,117,0.08)',tension:0.4,fill:true,pointRadius:3}]},options:{...base,plugins:{...base.plugins,legend:{display:true,labels:{font:{size:10},boxWidth:12,color:'#666'}}}}}); }
+  function buildRealtime(){ const lb=Array(24).fill('').map((_,i)=>i===23?'agora':i%4===0?(23-i)+'s atrás':''); mk('chartRealtime',{type:'line',data:{labels:lb,datasets:[{label:'Score D/M*',data:[...rtData],borderColor:'#1D9E75',backgroundColor:'rgba(29,158,117,0.06)',tension:0.4,fill:true,pointRadius:2},{label:'Limiar atenção (0.8)',data:Array(24).fill(0.8),borderColor:'#EF9F27',borderDash:[5,5],pointRadius:0,fill:false},{label:'Limiar crítico (1.2)',data:Array(24).fill(1.2),borderColor:'#E24B4A',borderDash:[5,5],pointRadius:0,fill:false}]},options:{...base,animation:{duration:300},plugins:{...base.plugins,legend:{display:true,labels:{font:{size:10},boxWidth:12,color:'#666'}}},scales:{...base.scales,y:{...base.scales.y,min:0,max:1.5}}}}); }
+  function buildTemp(a){ mk('chartTemp',{type:'line',data:{labels:H24,datasets:[{label:'Temperatura (°C)',data:a.tempHistory,borderColor:'#D85A30',backgroundColor:'rgba(216,90,48,0.06)',tension:0.4,fill:true,pointRadius:2},{label:'Limiar normal (39°C)',data:Array(24).fill(39),borderColor:'#E24B4A',borderDash:[4,4],pointRadius:0,fill:false}]},options:{...base,plugins:{...base.plugins,legend:{display:true,labels:{font:{size:10},boxWidth:12,color:'#666'}}},scales:{...base.scales,y:{...base.scales.y,min:37.5,max:40.5}}}}); }
+  function buildEvolution(){ const ss=timeRange==='6m'?6:0,lb=timeRange==='6m'?M6:M12; mk('chartEvolution',{type:'line',data:{labels:lb,datasets:ANIMALS.map(a=>({label:a.name.split(' ')[0],data:a.sigmaHistory.slice(ss),borderColor:Predictor.scoreColor(a.score),backgroundColor:'transparent',tension:0.4,pointRadius:3,borderWidth:AppState.selectedAnimalId===a.id?3:1.5}))},options:{...base,plugins:{...base.plugins,legend:{display:true,labels:{font:{size:10},boxWidth:12,color:'#666'}}},scales:{...base.scales,y:{...base.scales.y,min:0,max:1}}}}); }
+  function buildMemory(a){ const ss=timeRange==='6m'?6:0,lb=timeRange==='6m'?M6:M12; mk('chartMemory',{type:'line',data:{labels:lb,datasets:[{label:'σ (memória longa 24m)',data:a.sigmaHistory.slice(ss),borderColor:'#7F77DD',backgroundColor:'rgba(127,119,221,0.07)',tension:0.4,fill:true,pointRadius:3},{label:'φ (memória curta 6m)',data:a.phiHistory.slice(ss),borderColor:'#D85A30',backgroundColor:'rgba(216,90,48,0.05)',tension:0.4,fill:true,pointRadius:3}]},options:{...base,plugins:{...base.plugins,legend:{display:true,labels:{font:{size:10},boxWidth:12,color:'#666'}}},scales:{...base.scales,y:{...base.scales.y,min:0,max:0.9}}}}); }
+  function buildRumination(a){ const ss=timeRange==='6m'?6:0,lb=timeRange==='6m'?M6:M12; mk('chartRumination',{type:'bar',data:{labels:lb,datasets:ANIMALS.map(a=>({label:a.name.split(' ')[0],data:a.ruminHistory.slice(ss),backgroundColor:Predictor.scoreColor(a.score)+'66',borderColor:Predictor.scoreColor(a.score),borderWidth:1,borderRadius:4}))},options:{...base,plugins:{...base.plugins,legend:{display:true,labels:{font:{size:10},boxWidth:12,color:'#666'}}},scales:{...base.scales,y:{...base.scales.y,min:0,max:70}}}}); }
+  function buildRadar(){ mk('chartRadar',{type:'radar',data:{labels:MODULES.map(m=>`M${m.num}`),datasets:[{label:'BoviWatch',data:MODULES.map(m=>m.coverage),borderColor:'#1D9E75',backgroundColor:'rgba(29,158,117,0.15)',pointBackgroundColor:'#1D9E75',pointRadius:4},{label:'Requisito InoCrowd',data:Array(7).fill(100),borderColor:'#B5D4F4',backgroundColor:'rgba(181,212,244,0.06)',pointBackgroundColor:'#378ADD',pointRadius:3,borderDash:[4,4]}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,labels:{font:{size:10},boxWidth:12,color:'#666'}}},scales:{r:{grid:{color:'rgba(0,0,0,0.06)'},ticks:{display:false},pointLabels:{font:{size:11},color:'#666'},min:0,max:100}}}}); }
+  function tickRealtime(getAnimal){ const last=rtData[rtData.length-1],next=Predictor.simulateSensor(last,0.06); rtData.shift(); rtData.push(next); if(charts['chartRealtime']){charts['chartRealtime'].data.datasets[0].data=[...rtData];charts['chartRealtime'].update('none');} updateSensorBars(getAnimal()); const cl=document.getElementById('rtClock'); if(cl) cl.textContent=new Date().toLocaleTimeString('pt-PT'); }
+  function updateSensorBars(a){ const el=document.getElementById('sensorBars'); if(!el||!a) return; const sensors=[{label:'Score D/M*',val:rtData[rtData.length-1].toFixed(2),pct:rtData[rtData.length-1]/1.5,color:'#1D9E75'},{label:'Temperatura',val:(38+Math.random()*1.3).toFixed(1)+'°C',pct:0.55+Math.random()*0.25,color:'#D85A30'},{label:'Ruminação',val:Math.floor(35+Math.random()*25)+'min/h',pct:0.60+Math.random()*0.20,color:'#1D9E75'},{label:'Actividade',val:Math.floor(55+Math.random()*35)+'%',pct:0.55+Math.random()*0.35,color:'#7F77DD'},{label:'σ-field',val:a.sigma.toFixed(2),pct:a.sigma,color:'#7F77DD'},{label:'φ-field',val:a.phi.toFixed(2),pct:a.phi,color:'#D85A30'}]; el.innerHTML=sensors.map(s=>`<div class="sensor-row"><span class="sensor-label">${s.label}</span><div class="sensor-bar"><div class="sensor-fill" style="width:${Math.min(s.pct*100,100).toFixed(0)}%;background:${s.color};"></div></div><span class="sensor-val" style="color:${s.color};">${s.val}</span></div>`).join(''); }
+  function setTimeRange(r){ timeRange=r; }
+  function refreshAll(a){ const cur=document.querySelector('.chart-tab-content.active'); if(!cur) return; const id=cur.id; if(id==='ctab-antes-depois'){buildBeforeAfter();buildMilk(a);buildDisease();buildCost();}else if(id==='ctab-tempo-real'){buildRealtime();buildTemp(a);updateSensorBars(a);}else if(id==='ctab-evolucao'){buildEvolution();buildMemory(a);buildRumination(a);} }
+  function startRealtime(getAnimal){ if(rtInterval) clearInterval(rtInterval); rtInterval=setInterval(()=>{ const cur=document.querySelector('.chart-tab-content.active'); if(cur&&cur.id==='ctab-tempo-real') tickRealtime(getAnimal); },3000); }
+  return { buildBeforeAfter, buildMilk, buildDisease, buildCost, buildRealtime, buildTemp, buildEvolution, buildMemory, buildRumination, buildRadar, setTimeRange, refreshAll, startRealtime, updateSensorBars };
+})();
+
+function setTimeRange(r,el){ ChartsModule.setTimeRange(r); document.querySelectorAll('.time-btn').forEach(b=>b.classList.remove('active')); el.classList.add('active'); const a=AppState.getSelectedAnimal(); ChartsModule.buildEvolution(); ChartsModule.buildMemory(a); ChartsModule.buildMilk(a); ChartsModule.buildRumination(a); }
+
+// ─── ALERTS ───────────────────────────────────────────────────────────────────
+const AlertsModule = (() => {
+  function render(){ const feed=document.getElementById('alertsFeed'); if(!feed) return; feed.innerHTML=ALERTS_DATA.map(a=>`<div class="alert-item ${a.type}"><div><div class="alert-cow">${a.cow} · <span style="font-weight:400;color:#999;">${a.time}</span></div><div class="alert-title">${a.title}</div><div class="alert-body">${a.body}</div><div class="alert-time">Módulo: ${a.module}</div></div></div>`).join(''); const summary=document.getElementById('alertsSummary'); if(!summary) return; const c={warn:0,danger:0,ok:0}; ALERTS_DATA.forEach(a=>c[a.type]++); summary.innerHTML=`<div style="font-size:13px;font-weight:600;margin-bottom:12px;">Resumo de alertas</div><div style="display:flex;flex-direction:column;gap:8px;"><div style="display:flex;align-items:center;justify-content:space-between;padding:10px;background:#FAEEDA;border-radius:8px;"><span style="font-size:13px;color:#854F0B;">⚠️ Atenção</span><span style="font-size:18px;font-weight:700;color:#BA7517;">${c.warn}</span></div><div style="display:flex;align-items:center;justify-content:space-between;padding:10px;background:#FCEBEB;border-radius:8px;"><span style="font-size:13px;color:#A32D2D;">🔴 Crítico</span><span style="font-size:18px;font-weight:700;color:#E24B4A;">${c.danger}</span></div><div style="display:flex;align-items:center;justify-content:space-between;padding:10px;background:#E1F5EE;border-radius:8px;"><span style="font-size:13px;color:#0F6E56;">✅ Normal</span><span style="font-size:18px;font-weight:700;color:#1D9E75;">${c.ok}</span></div></div><div style="margin-top:14px;font-size:11px;color:#999;">Motor preditivo activo · atualiza a cada ciclo de sensor</div>`; }
+  return { render };
+})();
+
+// ─── RENDER FUNCTIONS ─────────────────────────────────────────────────────────
+function renderTopMetrics(){ const t=LANGS[currentLang]||LANGS.pt; const healthy=ANIMALS.filter(a=>a.status==='ok').length,alerts=ANIMALS.filter(a=>a.status!=='ok').length,avg=(ANIMALS.reduce((s,a)=>s+a.score,0)/ANIMALS.length).toFixed(2); document.getElementById('topMetrics').innerHTML=[{val:ANIMALS.length,lbl:t.animals,color:'#1a1a1a'},{val:healthy,lbl:t.healthy,color:'#1D9E75'},{val:alerts,lbl:t.alertsLbl,color:'#EF9F27'},{val:avg,lbl:t.avg,color:'#1a1a1a'}].map(m=>`<div class="topbar-metric"><div class="topbar-metric-val" style="color:${m.color};">${m.val}</div><div class="topbar-metric-lbl">${m.lbl}</div></div>`).join(''); }
+
+function renderAnimalGrid(){ document.getElementById('animalGrid').innerHTML=ANIMALS.map(a=>{ const c=Predictor.scoreColor(a.score),sl=a.status==='ok'?'Saudável':a.status==='warn'?'Atenção':'Crítico',bc=a.status==='ok'?'green':a.status==='warn'?'amber':'red'; return `<div class="animal-card ${AppState.selectedAnimalId===a.id?'selected':''}" onclick="AppState.selectAnimal(${a.id})"><div class="animal-avatar">${a.photo?`<img src="${a.photo}" alt="${a.name}">`:a.emoji}</div><div class="animal-name">${a.name}</div><div class="animal-id">${a.age} anos · ${a.local}</div><div style="text-align:center;margin:4px 0;"><span class="badge ${bc}">${sl}</span></div><div class="animal-score" style="color:${c};">${a.score.toFixed(2)}</div><div style="font-size:10px;color:#999;text-align:center;margin-top:2px;">Score D/M*</div><div class="score-bar"><div class="score-fill" style="width:${Math.min(a.score/1.5*100,100).toFixed(0)}%;background:${c};"></div></div></div>`; }).join(''); }
+
+function renderAnimalDetail(){ const a=AppState.getSelectedAnimal(),risk=Predictor.computeRisk(a),desc=Predictor.describeAnimal(a),el=document.getElementById('animalDetail'); el.style.display='block'; el.innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;"><div style="display:flex;align-items:center;gap:12px;"><div style="font-size:40px;">${a.emoji}</div><div><div style="font-size:18px;font-weight:700;">${a.name}</div><div style="font-size:13px;color:#666;">${a.local} · ${a.country} · Lactação ${a.lactation}</div></div></div><div style="text-align:right;"><div style="font-size:28px;font-weight:700;color:${desc.riskColor};">${a.score.toFixed(2)}</div><span class="badge ${a.status==='ok'?'green':a.status==='warn'?'amber':'red'}">${desc.riskLevel}</span></div></div><div class="detail-grid"><div class="detail-item"><div class="detail-label">Peso</div><div class="detail-value">${a.weight}</div></div><div class="detail-item"><div class="detail-label">Temperatura</div><div class="detail-value" style="color:#D85A30;">${a.temp}</div></div><div class="detail-item"><div class="detail-label">Ruminação</div><div class="detail-value">${a.rumination}</div></div><div class="detail-item"><div class="detail-label">σ-field (24m)</div><div class="detail-value" style="color:#7F77DD;">${a.sigma.toFixed(2)}</div></div><div class="detail-item"><div class="detail-label">φ-field (6m)</div><div class="detail-value" style="color:#D85A30;">${a.phi.toFixed(2)}</div></div><div class="detail-item"><div class="detail-label">Previsão</div><div class="detail-value" style="font-size:12px;color:#1D9E75;">${desc.leadTime}</div></div></div><div style="margin-top:12px;padding:12px;background:#E1F5EE;border-radius:8px;font-size:13px;color:#0F6E56;">💡 <strong>Recomendação:</strong> ${desc.recommendation}</div>`; }
+
+function renderModules(){ document.getElementById('modulesList').innerHTML=MODULES.map(m=>`<div class="module-item"><div class="module-num">${m.num}</div><div style="flex:1;"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><div class="module-name">${m.name}</div><span class="badge blue">${m.field}</span><span class="badge ${m.status==='ok'?'green':'amber'}">${m.coverage}% cobertura</span></div><div class="module-desc">${m.desc}</div><div style="height:4px;border-radius:2px;background:#f0f0f0;margin-top:8px;overflow:hidden;"><div style="height:100%;width:${m.coverage}%;background:${m.status==='ok'?'#1D9E75':'#EF9F27'};border-radius:2px;"></div></div></div></div>`).join(''); setTimeout(()=>ChartsModule.buildRadar(),100); }
+
+function renderMotorPreditivo(){ document.getElementById('motorGrid').innerHTML=`
+  <div class="motor-card"><div class="motor-card-title">Índice de bem-estar composto</div><div style="padding:10px;background:#E1F5EE;border-radius:8px;"><div style="font-size:11px;color:#0F6E56;margin-bottom:6px;">Parâmetros monitorados</div>${ANIMALS.map(a=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><div style="font-size:12px;font-weight:600;flex:1;">${a.name}</div><div style="height:6px;flex:2;border-radius:3px;background:#C0DD97;overflow:hidden;"><div style="height:100%;width:${(a.score/1.5*100).toFixed(0)}%;background:${Predictor.scoreColor(a.score)};border-radius:3px;"></div></div><div style="font-size:12px;font-weight:700;color:${Predictor.scoreColor(a.score)};min-width:32px;text-align:right;">${a.score.toFixed(2)}</div></div>`).join('')}</div><div style="font-size:11px;color:#0F6E56;margin-top:8px;">Atualização contínua via sensores</div></div>
+  <div class="motor-card"><div class="motor-card-title">Limiares de alerta</div><div class="motor-threshold"><div class="threshold-item" style="background:#E1F5EE;"><div class="threshold-val">D/M* &lt; 0.3</div><div class="threshold-label" style="color:#0F6E56;">INATIVO</div></div><div class="threshold-item" style="background:#FAEEDA;"><div class="threshold-val">0.3 – 0.8</div><div class="threshold-label" style="color:#854F0B;">MONITORAR</div></div><div class="threshold-item" style="background:#FAECE7;"><div class="threshold-val">0.8 – 1.2</div><div class="threshold-label" style="color:#993C1D;">AGIR</div></div><div class="threshold-item" style="background:#FCEBEB;"><div class="threshold-val">D/M* &gt; 1.2</div><div class="threshold-label" style="color:#A32D2D;">CRÍTICO</div></div></div></div>
+  <div class="motor-card"><div class="motor-card-title">Memória de longo prazo (σ)</div><div style="padding:10px;background:#F1EFE8;border-radius:8px;">${ANIMALS.map(a=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><div style="font-size:11px;color:#666;flex:1;">${a.name.split(' ')[0]}</div><div style="height:5px;flex:2;border-radius:3px;background:#D3D1C7;overflow:hidden;"><div style="height:100%;width:${(a.sigma*100).toFixed(0)}%;background:#7F77DD;border-radius:3px;"></div></div><div style="font-size:11px;font-weight:600;color:#7F77DD;min-width:30px;text-align:right;">${a.sigma.toFixed(2)}</div></div>`).join('')}<div style="font-size:10px;color:#999;margin-top:4px;">Janela: 24 meses</div></div></div>
+  <div class="motor-card"><div class="motor-card-title">Memória de curto prazo (φ)</div><div style="padding:10px;background:#F1EFE8;border-radius:8px;">${ANIMALS.map(a=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><div style="font-size:11px;color:#666;flex:1;">${a.name.split(' ')[0]}</div><div style="height:5px;flex:2;border-radius:3px;background:#D3D1C7;overflow:hidden;"><div style="height:100%;width:${(a.phi*100).toFixed(0)}%;background:#D85A30;border-radius:3px;"></div></div><div style="font-size:11px;font-weight:600;color:#D85A30;min-width:30px;text-align:right;">${a.phi.toFixed(2)}</div></div>`).join('')}<div style="font-size:10px;color:#999;margin-top:4px;">Janela: 6 meses · ecos de choque</div></div></div>
+  <div class="motor-card"><div class="motor-card-title">Estado do rebanho — agora</div><div style="display:flex;flex-direction:column;gap:8px;margin-top:4px;">${ANIMALS.map(a=>{ const al=Predictor.alertLevel(Predictor.computeRisk(a).ratio); return `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:${al.bg};border-radius:8px;"><div style="font-size:12px;font-weight:600;flex:1;">${a.emoji} ${a.name}</div><div style="font-size:12px;font-weight:700;color:${al.color};">${al.level}</div></div>`; }).join('')}</div></div>
+  <div class="motor-card"><div class="motor-card-title">Antecedência de previsão</div><div style="display:flex;flex-direction:column;gap:8px;margin-top:4px;">${ANIMALS.map(a=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:#F7F6F3;border-radius:8px;border:1px solid rgba(0,0,0,0.06);"><div style="font-size:12px;font-weight:600;">${a.name.split(' ')[0]}</div><div style="font-size:11px;color:#1D9E75;font-weight:600;">${Predictor.leadTime(a.sigma)}</div></div>`).join('')}</div></div>`; }
+
+// ─── NAVEGAÇÃO ────────────────────────────────────────────────────────────────
+function showSection(id, btn) {
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('section-'+id).classList.add('active');
+  if(btn) btn.classList.add('active');
+  if(id==='graficos') setTimeout(()=>{ const a=AppState.getSelectedAnimal(); ChartsModule.buildBeforeAfter(); ChartsModule.buildMilk(a); ChartsModule.buildDisease(); ChartsModule.buildCost(); },100);
+  if(id==='rebanho') renderAnimalDetail();
+  if(id==='fazendas') renderFarmDashboard();
+  if(id==='bezerros') renderCalves();
+}
+function switchChartTab(tabId,el){ document.querySelectorAll('.chart-tab').forEach(t=>t.classList.remove('active')); document.querySelectorAll('.chart-tab-content').forEach(c=>c.classList.remove('active')); el.classList.add('active'); document.getElementById('ctab-'+tabId).classList.add('active'); const a=AppState.getSelectedAnimal(); setTimeout(()=>{ if(tabId==='antes-depois'){ChartsModule.buildBeforeAfter();ChartsModule.buildMilk(a);ChartsModule.buildDisease();ChartsModule.buildCost();}if(tabId==='tempo-real'){ChartsModule.buildRealtime();ChartsModule.buildTemp(a);ChartsModule.updateSensorBars(a);}if(tabId==='evolucao'){ChartsModule.buildEvolution();ChartsModule.buildMemory(a);ChartsModule.buildRumination(a);} },80); }
+
+// ─── MODAL ────────────────────────────────────────────────────────────────────
+function openAddModal()  { document.getElementById('addModal').style.display='flex'; }
+function closeAddModal() { document.getElementById('addModal').style.display='none'; }
+function handlePhoto(e){ const file=e.target.files[0]; if(!file) return; const r=new FileReader(); r.onload=ev=>{ const area=document.getElementById('uploadArea'); area.innerHTML=`<img src="${ev.target.result}" style="width:80px;height:80px;border-radius:50%;object-fit:cover;"><br><span style="font-size:11px;color:#666;">Foto carregada ✓</span>`; area._photo=ev.target.result; }; r.readAsDataURL(file); }
+function saveAnimal(){ const name=document.getElementById('fName').value||`Vaca #${ANIMALS.length+1}`,age=parseInt(document.getElementById('fAge').value)||1,local=document.getElementById('fLocal').value||'Pasto A',score=parseFloat(document.getElementById('fScore').value)||0.3,weight=document.getElementById('fWeight').value?document.getElementById('fWeight').value+'kg':'500kg',lact=document.getElementById('fLact').value||'1ª',photo=document.getElementById('uploadArea')._photo||null; const gps=_pendingGPS||{lat:40.5+(Math.random()-0.5)*0.5,lon:-8.3+(Math.random()-0.5)*0.5}; _pendingGPS=null; const newA={ id:Date.now(),name,emoji:'🐄',age,local,country:'Portugal',score,scoreBefore:+(score+0.2+Math.random()*0.2).toFixed(2),status:Predictor.statusFromScore(score),lat:gps.lat,lon:gps.lon,lactation:lact,weight,temp:'38.5°C',rumination:'Normal',sigma:+(score*0.8).toFixed(2),phi:+(score*0.5).toFixed(2),photo,tempHistory:Array(24).fill(38.4).map(v=>+(v+Math.random()*0.5).toFixed(1)),milkHistory:Array(12).fill(16).map((v,i)=>+(v+i*0.2+Math.random()).toFixed(1)),sigmaHistory:Array(12).fill(score).map(v=>+(v+Math.random()*0.1-0.05).toFixed(2)),phiHistory:Array(12).fill(score*0.6).map(v=>+(v+Math.random()*0.08-0.04).toFixed(2)),ruminHistory:Array(12).fill(40).map(v=>Math.floor(v+Math.random()*10)) }; ANIMALS.push(newA); closeAddModal(); ['fName','fAge','fLocal','fScore','fWeight','fLact'].forEach(id=>{document.getElementById(id).value='';}); document.getElementById('uploadArea').innerHTML='📷 Clique para carregar foto do animal<input type="file" id="photoInput" accept="image/*" style="display:none" onchange="handlePhoto(event)">'; renderTopMetrics(); renderAnimalGrid(); MapModule.drawAnimals(); AppState.selectAnimal(newA.id); }
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  renderTopMetrics();
+  renderAnimalGrid();
+  MapModule.init();
+  renderFarmDashboard();
+  renderCalves();
+  NotifModule.startMonitor();
+  setTimeout(applyLang, 100);
+  renderModules();
+  renderMotorPreditivo();
+  AlertsModule.render();
+  ChartsModule.startRealtime(AppState.getSelectedAnimal.bind(AppState));
+  setTimeout(()=>{ ChartsModule.buildBeforeAfter(); ChartsModule.buildMilk(AppState.getSelectedAnimal()); ChartsModule.buildDisease(); ChartsModule.buildCost(); },200);
+});
+
+
+
+
+// ═══════════════════════════════════════════════════════════════
+// NOTIFICAÇÕES PUSH
+// ═══════════════════════════════════════════════════════════════
+const NotifModule = (() => {
+  let queue = [], unread = 0, interval = null;
+
+  function push(type, cow, title, msg) {
+    unread++;
+    const badge = document.getElementById('notifBadge');
+    if(badge){ badge.style.display='flex'; badge.textContent=unread; }
+    const container = document.getElementById('notifContainer');
+    if(!container) return;
+    const icons = {warn:'⚠️', danger:'🚨', ok:'✅'};
+    const el = document.createElement('div');
+    el.className = `notif`;
+    el.innerHTML = `
+      <div class="notif-icon ${type}">${icons[type]||'🔔'}</div>
+      <div class="notif-body">
+        <div class="notif-title">${cow}</div>
+        <div class="notif-msg">${title}</div>
+        <div class="notif-time">${msg} · agora</div>
+      </div>
+      <button class="notif-close" onclick="NotifModule.dismiss(this.parentElement)">✕</button>`;
+    container.appendChild(el);
+    queue.push(el);
+    // Auto-dismiss após 6s
+    setTimeout(() => NotifModule.dismiss(el), 6000);
+  }
+
+  function dismiss(el) {
+    if(!el || el.classList.contains('removing')) return;
+    el.classList.add('removing');
+    setTimeout(() => el.remove(), 300);
+  }
+
+  function startMonitor() {
+    if(interval) clearInterval(interval);
+    interval = setInterval(() => {
+      ANIMALS.forEach(a => {
+        const risk = Predictor.computeRisk(a);
+        // Simula variação pequena no score para trigger ocasional
+        const delta = (Math.random() - 0.45) * 0.04;
+        const newScore = Math.max(0.05, Math.min(1.5, a.score + delta));
+        const prevZone = a.score < 0.3 ? 'ok' : a.score < 0.8 ? 'warn' : 'danger';
+        const newZone  = newScore < 0.3  ? 'ok' : newScore  < 0.8  ? 'warn' : 'danger';
+        if(prevZone !== newZone && newZone !== 'ok') {
+          a.score = +newScore.toFixed(2);
+          a.status = Predictor.statusFromScore(a.score);
+          const type = newZone;
+          const title = newZone === 'danger'
+            ? `Score D/M* = ${a.score.toFixed(2)} — ZONA CRÍTICA`
+            : `Score D/M* = ${a.score.toFixed(2)} — Zona de atenção`;
+          push(type, a.name, title, 'Motor preditivo detectou mudança de zona');
+          renderTopMetrics();
+          renderAnimalGrid();
+          MapModule.drawAnimals();
+        }
+      });
+    }, 12000); // verifica a cada 12s
+  }
+
+  // Push inicial de demo após 3s
+  setTimeout(() => {
+    push('warn', 'Estrela #07', 'Score D/M* = 0.71 — Zona de atenuação', 'Ruminação reduzida detectada');
+  }, 3000);
+  setTimeout(() => {
+    push('ok', 'Boneca #23', 'Score D/M* = 0.18 — Zona segura', 'Todos os parâmetros normais');
+  }, 6000);
+
+  return { push, dismiss, startMonitor };
+})();
+
+function toggleNotifPanel() {
+  // Limpa badge ao abrir
+  const badge = document.getElementById('notifBadge');
+  if(badge){ badge.style.display='none'; }
+  NotifModule.push('warn','Sistema','Painel de notificações ativo','Monitoramento em tempo real ligado');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// GPS TRAIL — HISTÓRICO DE POSIÇÕES
+// ═══════════════════════════════════════════════════════════════
+const GPSTrail = (() => {
+  // Gera histórico simulado de posições para cada animal
+  function generateTrail(animal, points=12) {
+    const trail = [];
+    let lat = animal.lat, lon = animal.lon;
+    const now = Date.now();
+    for(let i = points; i >= 0; i--) {
+      lat += (Math.random()-0.5)*0.003;
+      lon += (Math.random()-0.5)*0.003;
+      trail.push({ lat:+lat.toFixed(5), lon:+lon.toFixed(5), time: new Date(now - i*300000) });
+    }
+    return trail;
+  }
+
+  const trails = {};
+  let trailLayers = {};
+  let trailInterval = null;
+
+  function drawTrail(map, animal) {
+    // Limpar trail anterior deste animal
+    if(trailLayers[animal.id]) {
+      trailLayers[animal.id].forEach(l => map.removeLayer(l));
+    }
+    trailLayers[animal.id] = [];
+
+    if(!trails[animal.id]) trails[animal.id] = generateTrail(animal);
+    const trail = trails[animal.id];
+    const color = Predictor.scoreColor(animal.score);
+
+    // Linha do trajeto
+    const points = trail.map(p => [p.lat, p.lon]);
+    const line = L.polyline(points, {
+      color: color, weight: 2.5, opacity: 0.7, dashArray: '6,4'
+    }).addTo(map);
+    trailLayers[animal.id].push(line);
+
+    // Pontos do trajeto
+    trail.forEach((p, i) => {
+      const opacity = 0.3 + (i/trail.length)*0.7;
+      const r = i === trail.length-1 ? 7 : 4;
+      const circle = L.circleMarker([p.lat, p.lon], {
+        radius: r, color: color, fillColor: color,
+        fillOpacity: opacity, weight: 1, opacity: opacity
+      });
+      const timeStr = p.time.toLocaleTimeString('pt-PT', {hour:'2-digit',minute:'2-digit'});
+      circle.bindTooltip(`${animal.name} · ${timeStr}`, {direction:'top'});
+      circle.addTo(map);
+      trailLayers[animal.id].push(circle);
+    });
+  }
+
+  function clearTrails(map) {
+    Object.values(trailLayers).forEach(layers => {
+      layers.forEach(l => { try{ map.removeLayer(l); }catch(e){} });
+    });
+    trailLayers = {};
+  }
+
+  function startLiveUpdate(map) {
+    if(trailInterval) clearInterval(trailInterval);
+    trailInterval = setInterval(() => {
+      ANIMALS.forEach(a => {
+        if(!trails[a.id]) return;
+        const last = trails[a.id][trails[a.id].length-1];
+        const newPoint = {
+          lat: +(last.lat + (Math.random()-0.5)*0.001).toFixed(5),
+          lon: +(last.lon + (Math.random()-0.5)*0.001).toFixed(5),
+          time: new Date()
+        };
+        trails[a.id].push(newPoint);
+        if(trails[a.id].length > 20) trails[a.id].shift();
+        a.lat = newPoint.lat; a.lon = newPoint.lon;
+      });
+    }, 8000);
+  }
+
+  return { drawTrail, clearTrails, startLiveUpdate, trails };
+})();
+
+// ═══════════════════════════════════════════════════════════════
+// DASHBOARD POR FAZENDA
+// ═══════════════════════════════════════════════════════════════
+function renderFarmDashboard() {
+  const container = document.getElementById('farmDashboard');
+  if(!container) return;
+
+  // Agrupa animais por fazenda (por país/localização)
+  const farmGroups = {};
+  FARMS.forEach(f => { farmGroups[f.name] = { farm: f, animals: [] }; });
+  // Distribui animais pelas fazendas ativas
+  const activeFarms = FARMS.filter(f => f.active);
+  ANIMALS.forEach((a, i) => {
+    const farm = activeFarms[i % activeFarms.length];
+    if(farm && farmGroups[farm.name]) farmGroups[farm.name].animals.push(a);
+  });
+
+  container.innerHTML = Object.values(farmGroups).map(({farm, animals}) => {
+    const healthy = animals.filter(a => a.status==='ok').length;
+    const alerts  = animals.filter(a => a.status!=='ok').length;
+    const avgScore = animals.length ? (animals.reduce((s,a)=>s+a.score,0)/animals.length).toFixed(2) : '-';
+    const statusColor = alerts > 0 ? '#EF9F27' : '#1D9E75';
+    return `
+    <div class="farm-card" onclick="showFarmDetail('${farm.name}')">
+      <div class="farm-card-header">
+        <div class="farm-card-name">${farm.active ? '🟢' : '⚪'} ${farm.name}</div>
+        <span class="badge ${farm.active?'green':'amber'}">${farm.active?'Ativa':'Expansão'}</span>
+      </div>
+      <div class="farm-status">
+        <div class="farm-stat"><div class="farm-stat-val" style="color:#1D9E75;">${healthy}</div><div class="farm-stat-lbl">Saudáveis</div></div>
+        <div class="farm-stat"><div class="farm-stat-val" style="color:#EF9F27;">${alerts}</div><div class="farm-stat-lbl">Alertas</div></div>
+        <div class="farm-stat"><div class="farm-stat-val" style="color:${statusColor};">${avgScore}</div><div class="farm-stat-lbl">D/M* Médio</div></div>
+        <div class="farm-stat"><div class="farm-stat-val">${farm.units||animals.length}</div><div class="farm-stat-lbl">Unidades</div></div>
+      </div>
+      ${animals.length ? `<div style="font-size:11px;color:#999;margin-bottom:6px;">Animais monitorados:</div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px;">
+        ${animals.map(a=>`<span class="badge ${a.status==='ok'?'green':a.status==='warn'?'amber':'red'}" style="cursor:pointer;" onclick="event.stopPropagation();AppState.selectAnimal(${a.id})">${a.emoji} ${a.name.split(' ')[0]}</span>`).join('')}
+      </div>` : `<div style="font-size:12px;color:#999;">Expansão prevista 2027</div>`}
+    </div>`;
+  }).join('');
+}
+
+function showFarmDetail(farmName) {
+  const detail = document.getElementById('farmDetail');
+  if(!detail) return;
+  const farmGroup = {};
+  FARMS.forEach(f => { farmGroup[f.name] = { farm: f, animals: [] }; });
+  const activeFarms = FARMS.filter(f => f.active);
+  ANIMALS.forEach((a,i) => {
+    const f = activeFarms[i % activeFarms.length];
+    if(f && farmGroup[f.name]) farmGroup[f.name].animals.push(a);
+  });
+  const {farm, animals} = farmGroup[farmName] || {};
+  if(!farm) return;
+
+  detail.style.display = 'block';
+  detail.innerHTML = `
+  <div class="farm-detail">
+    <div class="farm-detail-header">
+      <h3 style="font-size:15px;font-weight:700;">${farm.name} — Detalhe Completo</h3>
+      <button class="pdf-btn" onclick="exportPDF('farm','${farmName}')">📄 PDF desta Fazenda</button>
+    </div>
+    <div class="animal-grid" style="grid-template-columns:repeat(auto-fill,minmax(180px,1fr));">
+      ${animals.map(a => {
+        const c = Predictor.scoreColor(a.score);
+        const bc = a.status==='ok'?'green':a.status==='warn'?'amber':'red';
+        const sl = a.status==='ok'?'Saudável':a.status==='warn'?'Atenção':'Crítico';
+        return `<div class="animal-card" onclick="AppState.selectAnimal(${a.id})">
+          <div class="animal-avatar">${a.emoji}</div>
+          <div class="animal-name">${a.name}</div>
+          <div class="animal-id">${a.age} anos · ${a.local}</div>
+          <div style="text-align:center;margin:4px 0;"><span class="badge ${bc}">${sl}</span></div>
+          <div class="animal-score" style="color:${c};">${a.score.toFixed(2)}</div>
+          <div class="score-bar"><div class="score-fill" style="width:${Math.min(a.score/1.5*100,100).toFixed(0)}%;background:${c};"></div></div>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MÓDULO BEZERROS
+// ═══════════════════════════════════════════════════════════════
+const CALVES = [
+  { id:101, name:'Estrela Jr.', age:'12 dias', emoji:'🐄', status:'ok',
+    temp:'38.6°C', respRate:'28/min', rumination:'Iniciando', weight:'48kg', bedQuality:'Boa',
+    activity:[3,4,2,5,6,4,3,5,7,6,4,3], health:'ok' },
+  { id:102, name:'Bolinha', age:'5 dias', emoji:'🐮', status:'warn',
+    temp:'39.4°C', respRate:'36/min', rumination:'Ausente', weight:'42kg', bedQuality:'Húmida',
+    activity:[2,1,2,1,3,2,1,2,1,2,1,2], health:'warn' },
+  { id:103, name:'Pintada', age:'21 dias', emoji:'🐄', status:'ok',
+    temp:'38.3°C', respRate:'24/min', rumination:'Normal', weight:'56kg', bedQuality:'Boa',
+    activity:[5,6,4,7,6,5,6,7,5,6,7,5], health:'ok' },
+  { id:104, name:'Manchinha', age:'3 dias', emoji:'🐮', status:'danger',
+    temp:'40.1°C', respRate:'42/min', rumination:'Ausente', weight:'38kg', bedQuality:'Seca',
+    activity:[1,1,2,1,1,2,1,1,1,2,1,1], health:'danger' },
+];
+
+const CLIMATE_12H = [
+  { h:'Agora', temp:22, hum:68, hli:72, status:'ok', rec:null },
+  { h:'+3h',   temp:24, hum:70, hli:76, status:'ok', rec:null },
+  { h:'+6h',   temp:27, hum:74, hli:83, status:'warn', rec:'Activar ventilação zona norte' },
+  { h:'+9h',   temp:29, hum:78, hli:89, status:'warn', rec:'Activar nebulização + abrir cortinas' },
+  { h:'+12h',  temp:31, hum:82, hli:95, status:'danger', rec:'ALERTA: stress térmico crítico — realocar animais' },
+  { h:'+15h',  temp:30, hum:80, hli:91, status:'warn', rec:'Manter ventilação mecânica' },
+  { h:'+18h',  temp:26, hum:73, hli:79, status:'ok', rec:null },
+  { h:'+21h',  temp:23, hum:69, hli:73, status:'ok', rec:null },
+];
+
+function renderCalves() {
+  const grid = document.getElementById('calvesGrid');
+  if(!grid) return;
+  grid.innerHTML = CALVES.map(c => {
+    const bc = c.status==='ok'?'green':c.status==='warn'?'amber':'red';
+    const sl = c.status==='ok'?'Saudável':c.status==='warn'?'Atenção':'Crítico';
+    const tc = c.status==='ok'?'#1D9E75':c.status==='warn'?'#EF9F27':'#E24B4A';
+    const maxAct = Math.max(...c.activity);
+    return `
+    <div class="calf-card" style="border-color:${c.status!=='ok'?tc:'rgba(0,0,0,0.1)'};">
+      <div class="calf-avatar">${c.emoji}</div>
+      <div class="calf-name">${c.name}</div>
+      <div class="calf-age">${c.age}</div>
+      <div style="text-align:center;margin-bottom:8px;"><span class="badge ${bc}">${sl}</span></div>
+      <div class="calf-vitals">
+        <div class="calf-vital"><span class="calf-vital-lbl">Temperatura</span><span class="calf-vital-val" style="color:${parseFloat(c.temp)>39.5?'#E24B4A':'#1a1a1a'};">${c.temp}</span></div>
+        <div class="calf-vital"><span class="calf-vital-lbl">Resp. (min)</span><span class="calf-vital-val">${c.respRate}</span></div>
+        <div class="calf-vital"><span class="calf-vital-lbl">Ruminação</span><span class="calf-vital-val">${c.rumination}</span></div>
+        <div class="calf-vital"><span class="calf-vital-lbl">Peso</span><span class="calf-vital-val">${c.weight}</span></div>
+        <div class="calf-vital"><span class="calf-vital-lbl">Cama</span><span class="calf-vital-val">${c.bedQuality}</span></div>
+      </div>
+      <div style="font-size:10px;color:#999;margin-top:6px;">Balanço repouso-atividade (12h)</div>
+      <div class="activity-chart">
+        ${c.activity.map(v=>`<div class="act-bar" style="height:${Math.round(v/maxAct*100)}%;background:${tc};"></div>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
+
+  // Clima 12h
+  const climGrid = document.getElementById('climateGrid');
+  if(climGrid) {
+    climGrid.innerHTML = CLIMATE_12H.map(h => `
+      <div class="climate-cell ${h.status==='danger'?'danger':h.status==='warn'?'alert':''}">
+        <div class="climate-hour">${h.h}</div>
+        <div class="climate-temp" style="color:${h.status==='danger'?'#E24B4A':h.status==='warn'?'#BA7517':'#1D9E75'};">${h.temp}°C</div>
+        <div class="climate-hli" style="color:#999;">HLI: ${h.hli}</div>
+        <div style="font-size:10px;color:#999;">${h.hum}% hum.</div>
+      </div>`).join('');
+  }
+
+  const rec = document.getElementById('climateRec');
+  if(rec) {
+    const critical = CLIMATE_12H.filter(h=>h.status!=='ok');
+    const worst = critical.sort((a,b)=>b.hli-a.hli)[0];
+    if(worst) {
+      rec.innerHTML = `💡 <strong>Recomendação automática (${worst.h}):</strong> ${worst.rec} · HLI previsto: ${worst.hli}`;
+      if(worst.status==='danger') rec.style.background='#FCEBEB'; rec.style.color='#A32D2D';
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// EXPORT PDF — usa jsPDF via CDN
+// ═══════════════════════════════════════════════════════════════
+function exportPDF(type, farmName) {
+  // Carrega jsPDF dinamicamente
+  if(!window.jspdf) {
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+    script.onload = () => { window.jspdf = window.jspdf || window.jsPDF; generatePDF(type, farmName); };
+    document.head.appendChild(script);
+  } else {
+    generatePDF(type, farmName);
+  }
+}
+
+function generatePDF(type, farmName) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+  const now = new Date().toLocaleString('pt-PT');
+  const green = [29,158,117], dark = [15,110,86], gray = [102,102,102], black=[26,26,26];
+
+  // Cabeçalho
+  doc.setFillColor(...green);
+  doc.rect(0,0,210,28,'F');
+  doc.setTextColor(255,255,255);
+  doc.setFontSize(18); doc.setFont('helvetica','bold');
+  doc.text('BoviWatch — Digital Twin', 14, 12);
+  doc.setFontSize(10); doc.setFont('helvetica','normal');
+
+  let subtitle = 'Relatório de Bem-Estar Animal';
+  if(type==='bezerros') subtitle = 'Relatório — Módulo Bezerros';
+  if(type==='fazenda' && farmName) subtitle = `Relatório — ${farmName}`;
+  doc.text(subtitle, 14, 20);
+  doc.text(`Gerado em: ${now}`, 140, 20);
+
+  let y = 36;
+
+  // Linha decorativa
+  doc.setDrawColor(...green); doc.setLineWidth(0.5);
+  doc.line(14, y, 196, y); y += 6;
+
+  if(type === 'bezerros') {
+    // Resumo bezerros
+    doc.setTextColor(...dark); doc.setFontSize(13); doc.setFont('helvetica','bold');
+    doc.text('Módulo Bezerros — Resumo de Saúde', 14, y); y += 6;
+    doc.setFillColor(225,245,238); doc.rect(14,y,182,18,'F');
+    doc.setTextColor(...black); doc.setFontSize(9); doc.setFont('helvetica','normal');
+    const ok = CALVES.filter(c=>c.status==='ok').length;
+    const warn = CALVES.filter(c=>c.status==='warn').length;
+    const danger = CALVES.filter(c=>c.status==='danger').length;
+    doc.text(`Total de Bezerros: ${CALVES.length}   Saudáveis: ${ok}   Atenção: ${warn}   Críticos: ${danger}`, 18, y+7);
+    doc.text(`Padrão Welfair Quality: Módulo Crias — Avaliação automatizada via Digital Twin`, 18, y+13);
+    y += 24;
+
+    CALVES.forEach(c => {
+      if(y > 260) { doc.addPage(); y = 20; }
+      doc.setFillColor(c.status==='ok'?225:c.status==='warn'?250:252,
+                       c.status==='ok'?245:c.status==='warn'?238:235,
+                       c.status==='ok'?238:c.status==='warn'?218:235);
+      doc.rect(14,y,182,32,'F');
+      doc.setTextColor(...black); doc.setFontSize(11); doc.setFont('helvetica','bold');
+      doc.text(`${c.name} — ${c.age}`, 18, y+7);
+      doc.setFontSize(9); doc.setFont('helvetica','normal'); doc.setTextColor(...gray);
+      doc.text(`Temperatura: ${c.temp}   Resp.: ${c.respRate}   Ruminação: ${c.rumination}`, 18, y+14);
+      doc.text(`Peso: ${c.weight}   Qualidade da cama: ${c.bedQuality}`, 18, y+20);
+      const stLbl = c.status==='ok'?'SAUDÁVEL':c.status==='warn'?'ATENÇÃO':'CRÍTICO';
+      const stColor = c.status==='ok'?green:c.status==='warn'?[186,117,23]:[226,75,74];
+      doc.setTextColor(...stColor); doc.setFont('helvetica','bold');
+      doc.text(stLbl, 160, y+7);
+      y += 36;
+    });
+
+    // Previsão clima
+    y += 4;
+    doc.setTextColor(...dark); doc.setFontSize(12); doc.setFont('helvetica','bold');
+    doc.text('Previsão Microclima 12 Horas', 14, y); y += 6;
+    CLIMATE_12H.forEach(h => {
+      if(y > 270) { doc.addPage(); y = 20; }
+      const bg = h.status==='danger'?[252,235,235]:h.status==='warn'?[250,238,218]:[225,245,238];
+      doc.setFillColor(...bg); doc.rect(14,y,182,10,'F');
+      doc.setTextColor(...black); doc.setFontSize(9); doc.setFont('helvetica','normal');
+      doc.text(`${h.h}  —  Temp: ${h.temp}°C  |  HLI: ${h.hli}  |  Humidade: ${h.hum}%`, 18, y+6);
+      if(h.rec) { doc.setTextColor(...(h.status==='danger'?[163,45,45]:[186,117,23])); doc.text(`→ ${h.rec}`, 100, y+6); }
+      y += 12;
+    });
+
+  } else {
+    // Relatório rebanho geral (ou fazenda específica)
+    let animals = ANIMALS;
+    if(type==='fazenda' && farmName) {
+      const activeFarms = FARMS.filter(f=>f.active);
+      const fIdx = activeFarms.findIndex(f=>f.name===farmName);
+      animals = ANIMALS.filter((_,i)=> i % activeFarms.length === fIdx);
+    }
+
+    // Métricas gerais
+    doc.setTextColor(...dark); doc.setFontSize(13); doc.setFont('helvetica','bold');
+    doc.text('Resumo Executivo — Bem-Estar Animal', 14, y); y += 6;
+    doc.setFillColor(225,245,238); doc.rect(14,y,182,22,'F');
+    doc.setTextColor(...black); doc.setFontSize(9); doc.setFont('helvetica','normal');
+    const healthy = animals.filter(a=>a.status==='ok').length;
+    const alts = animals.filter(a=>a.status!=='ok').length;
+    const avg = (animals.reduce((s,a)=>s+a.score,0)/animals.length).toFixed(2);
+    doc.text(`Total animais: ${animals.length}   Saudáveis: ${healthy}   Alertas: ${alts}   Score D/M* médio: ${avg}`, 18, y+7);
+    doc.text(`Certificação: Welfair Quality + Certificado Interno Seeker`, 18, y+13);
+    doc.text(`Gerado pelo Motor Preditivo BoviWatch — Digital Twin`, 18, y+19);
+    y += 28;
+
+    // Tabela animais
+    doc.setTextColor(...dark); doc.setFontSize(11); doc.setFont('helvetica','bold');
+    doc.text('Registo Individual de Animais', 14, y); y += 5;
+
+    // Header tabela
+    doc.setFillColor(...green); doc.rect(14,y,182,8,'F');
+    doc.setTextColor(255,255,255); doc.setFontSize(8); doc.setFont('helvetica','bold');
+    ['Animal','Score D/M*','Status','Temp.','Ruminação','σ-field','φ-field','Lactação','Peso'].forEach((h,i)=>{
+      const xs=[14,46,68,90,107,127,143,158,175];
+      doc.text(h, xs[i]+1, y+5.5);
+    });
+    y += 10;
+
+    animals.forEach((a, ri) => {
+      if(y > 265) { doc.addPage(); y = 20; }
+      const bg = ri%2===0?[247,246,243]:[255,255,255];
+      doc.setFillColor(...bg); doc.rect(14,y,182,9,'F');
+      doc.setTextColor(...black); doc.setFontSize(8); doc.setFont('helvetica','normal');
+      const stColor = a.status==='ok'?green:a.status==='warn'?[186,117,23]:[226,75,74];
+      const stLbl = a.status==='ok'?'Saudável':a.status==='warn'?'Atenção':'Crítico';
+      const xs=[14,46,68,90,107,127,143,158,175];
+      const vals=[a.name,a.score.toFixed(2),'',a.temp,a.rumination,a.sigma.toFixed(2),a.phi.toFixed(2),a.lactation,a.weight];
+      vals.forEach((v,i)=>{
+        if(i===2){ doc.setTextColor(...stColor); doc.text(stLbl, xs[i]+1, y+6); doc.setTextColor(...black); }
+        else doc.text(String(v), xs[i]+1, y+6);
+      });
+      y += 10;
+    });
+
+    y += 6;
+    // Cobertura dos 7 módulos
+    doc.setTextColor(...dark); doc.setFontSize(11); doc.setFont('helvetica','bold');
+    doc.text('Cobertura dos 7 Módulos InoCrowd', 14, y); y += 6;
+    [
+      ['1 — Biomecânica e Locomoção','95%'],
+      ['2 — Fisiologia e Condição Corporal','90%'],
+      ['3 — Ambiente e Microclima','85%'],
+      ['4 — Comportamento Social e Emocional','88%'],
+      ['5 — Manejo e Simulação de Cenários','92%'],
+      ['6 — Módulo Bezerros','80%'],
+      ['7 — Integração com Sistemas Existentes','87%'],
+    ].forEach(([name, pct]) => {
+      if(y > 270) { doc.addPage(); y = 20; }
+      doc.setFontSize(9); doc.setFont('helvetica','normal'); doc.setTextColor(...black);
+      doc.text(name, 18, y);
+      doc.text(pct, 185, y, {align:'right'});
+      const w = parseFloat(pct)/100*130;
+      doc.setFillColor(220,240,232); doc.rect(18,y+1.5,130,3,'F');
+      doc.setFillColor(...green); doc.rect(18,y+1.5,w,3,'F');
+      y += 10;
+    });
+  }
+
+  // Rodapé
+  const pages = doc.internal.getNumberOfPages();
+  for(let i=1;i<=pages;i++){
+    doc.setPage(i);
+    doc.setDrawColor(...green); doc.setLineWidth(0.3);
+    doc.line(14,285,196,285);
+    doc.setFontSize(8); doc.setTextColor(...gray); doc.setFont('helvetica','normal');
+    doc.text('BoviWatch Digital Twin · Certificação Welfair Quality + Seeker · Gerado automaticamente', 14, 290);
+    doc.text(`Pág. ${i}/${pages}`, 196, 290, {align:'right'});
+  }
+
+  const fname = type==='bezerros'?'boviwatch_bezerros.pdf':type==='fazenda'&&farmName?`boviwatch_${farmName.replace(/\s/g,'_').toLowerCase()}.pdf`:'boviwatch_relatorio_saude.pdf';
+  doc.save(fname);
+}
+
+</script>
+</body>
+</html>
